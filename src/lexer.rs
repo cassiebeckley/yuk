@@ -1,7 +1,7 @@
 extern crate regex;
 use self::regex::Regex;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 enum TokenType {
     Whitespace,
     Identifier,
@@ -22,6 +22,7 @@ impl ToString for TokenType {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct Token<'a> {
     which: TokenType,
     value: &'a str
@@ -67,5 +68,42 @@ impl <'a>Iterator for Lexer<'a> {
         }
 
         return None;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Lexer;
+    use super::Token;
+    use super::TokenType;
+
+    #[test]
+    fn whitespace() {
+        let lexed: Vec<_> = Lexer::new(" \n\r\t").collect();
+        assert_eq!(lexed.len(), 1);
+        assert_eq!(lexed[0], Token {which: TokenType::Whitespace, value: " \n\r\t"});
+    }
+
+    #[test]
+    fn identifier() {
+        let lexed: Vec<_> = Lexer::new("hello_there").collect();
+        assert_eq!(lexed.len(), 1);
+        assert_eq!(lexed[0], Token {which: TokenType::Identifier, value: "hello_there"});
+    }
+
+    #[test]
+    fn integer() {
+        let lexed: Vec<_> = Lexer::new("1234").collect();
+        assert_eq!(lexed.len(), 1);
+        assert_eq!(lexed[0], Token {which: TokenType::Integer, value: "1234"});
+    }
+
+    #[test]
+    fn symbol() {
+        for s in [".", "(", ")"].iter() {
+            let lexed: Vec<_> = Lexer::new(s).collect();
+            assert_eq!(lexed.len(), 1);
+            assert_eq!(lexed[0], Token {which: TokenType::Symbol, value: s});
+        }
     }
 }
