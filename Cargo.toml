@@ -1,0 +1,7 @@
+[package]
+name = "ack"
+version = "0.1.0"
+authors = ["David Beckley <beckl.ds@gmail.com>"]
+
+[dependencies]
+regex = "0.1.8"
