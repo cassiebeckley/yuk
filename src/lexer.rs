@@ -2,7 +2,7 @@ extern crate regex;
 use self::regex::Regex;
 
 #[derive(Clone, Debug, PartialEq)]
-enum TokenType {
+pub enum TokenType {
     Whitespace,
     Identifier,
     Integer,
@@ -10,28 +10,10 @@ enum TokenType {
     Symbol,
 }
 
-impl ToString for TokenType {
-    fn to_string(&self) -> String {
-        match *self {
-            TokenType::Whitespace => "Whitespace",
-            TokenType::Identifier => "Identifier",
-            TokenType::Integer => "Integer",
-            // TokenType::Keyword => "Keyword",
-            TokenType::Symbol => "Symbol",
-        }.to_string()
-    }
-}
-
 #[derive(Debug, PartialEq)]
 pub struct Token<'a> {
-    which: TokenType,
-    value: &'a str
-}
-
-impl <'a>ToString for Token<'a> {
-    fn to_string(&self) -> String {
-        self.which.to_string() + ": " + &self.value
-    }
+    pub which: TokenType,
+    pub value: &'a str
 }
 
 pub struct Lexer<'a> {
@@ -51,7 +33,7 @@ impl <'a>Iterator for Lexer<'a> {
         let whitespace = Regex::new(r"^\s+").unwrap();
         let identifier = Regex::new(r"^[a-zA-Z_]+").unwrap();
         let integer = Regex::new(r"^\d+").unwrap();
-        let symbol = Regex::new(r"^[.()]").unwrap();
+        let symbol = Regex::new(r"^[.();]").unwrap();
 
         let patterns = vec![(whitespace, TokenType::Whitespace), (identifier, TokenType::Identifier), (integer, TokenType::Integer), (symbol, TokenType::Symbol)];
 

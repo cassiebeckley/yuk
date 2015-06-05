@@ -5,6 +5,17 @@ use std::io::prelude::*;
 // use std::fs;
 
 use ack::lexer::Lexer;
+use ack::parser;
+use ack::runtime;
+
+fn console_log(arguments: Vec<runtime::Value>, _: &runtime::Object) -> runtime::Value {
+    for value in arguments {
+        print!("{:?} ", value);
+    }
+    println!("");
+
+    runtime::Value::Undefined
+}
 
 fn main() {
     // let source = {
@@ -26,7 +37,22 @@ fn main() {
         };
 
         for token in Lexer::new(&source) {
-            println!("{}", token.to_string());
+            // println!("{}", token.to_string());
+            println!("{:?}", token);
+        }
+
+        println!("");
+
+        let parsed = parser::parse(&source);
+        println!("AST: {:?}", parsed);
+
+        if let Some(ast) = parsed {
+            let mut global = runtime::Object::new();
+            let mut console = runtime::Object::new();
+            console.insert("log".to_string(), runtime::Value::Function(runtime::Rc::new(runtime::Function::Native(console_log))));
+            global.insert("console".to_string(), runtime::Value::Object(console));
+            let result = runtime::eval(ast, global);
+            println!("Result: {:?}", result);
         }
     }
 }
