@@ -44,6 +44,8 @@ fn main() {
         println!("");
 
         let parsed = parser::parse(&source);
+
+        println!("");
         println!("AST: {:?}", parsed);
 
         if let Some(ast) = parsed {

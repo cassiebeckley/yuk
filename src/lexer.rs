@@ -33,7 +33,7 @@ impl <'a>Iterator for Lexer<'a> {
         let whitespace = Regex::new(r"^\s+").unwrap();
         let identifier = Regex::new(r"^[a-zA-Z_]+").unwrap();
         let integer = Regex::new(r"^\d+").unwrap();
-        let symbol = Regex::new(r"^[.();]").unwrap();
+        let symbol = Regex::new(r"^[.();,]").unwrap();
 
         let patterns = vec![(whitespace, TokenType::Whitespace), (identifier, TokenType::Identifier), (integer, TokenType::Integer), (symbol, TokenType::Symbol)];
 

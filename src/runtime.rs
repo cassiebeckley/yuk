@@ -89,7 +89,8 @@ fn eval_expression(expression: &ast::Expression, env: &Object) -> Value {
 
 fn eval_statement(statement: ast::Statement, env: &Object) -> Value {
     match statement {
-        ast::Statement::Expression(e) => eval_expression(&e, env)
+        ast::Statement::Expression(e) => eval_expression(&e, env),
+        ast::Statement::Empty => Value::Undefined
     }
 }
 
