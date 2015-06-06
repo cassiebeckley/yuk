@@ -1,0 +1,30 @@
+use super::super::{ast, runtime};
+
+#[pub]
+block -> ast::Block
+    = s:statement* { s }
+
+statement -> ast::Statement
+    = e:expression { ast::Statement::Expression(e) } / ";" { ast::Statement::Empty }
+
+expression -> ast::Expression
+    = f:expression "(" a:expression_list ")" { ast::Expression::Call(Box::new(f), a) }
+    / o:expression "." m:identifier { ast::Expression::Member(Box::new(o), m) }
+    / i:identifier { ast::Expression::Identifier(i) }
+    / v:literal { ast::Expression::Literal(v) }
+
+expression_list -> ast::ExpressionList
+    = expression ** ","
+
+literal -> runtime::Value
+    = i:integer { runtime::Value::Number(i) }
+
+whitespace
+    = [ \t\r\n]+
+
+identifier -> String
+    = [a-zA-Z_]+ { match_str.to_string() }
+
+// TODO: number, not integer
+integer -> f64
+    = [0-9]+ { match_str.parse().unwrap() }

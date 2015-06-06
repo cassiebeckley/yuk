@@ -1,3 +1,5 @@
+mod grammar;
+
 use super::lexer;
 use super::ast;
 
