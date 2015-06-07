@@ -2,14 +2,24 @@ use super::super::{ast, runtime};
 
 #[pub]
 parse -> ast::Block
-    = s:statement* __ { s }
+    = block
+
+block -> ast::Block
+    = s:statement* __ e:expression? {
+        let mut s = s;
+        if let Some(last) = e {
+            s.push(ast::Statement::Expression(last));
+        }
+        s
+    }
 
 statement -> ast::Statement
     = e:expression (__ ";" / whitespace* newline) { ast::Statement::Expression(e) }
     / __ ";" { ast::Statement::Empty }
 
 expression -> ast::Expression
-    = lhs:access __ "=" __ rhs:expression { ast::Expression::Assignment(lhs, Box::new(rhs)) }
+    = __ v:literal { ast::Expression::Literal(v) }
+    / lhs:access __ "=" __ rhs:expression { ast::Expression::Assignment(lhs, Box::new(rhs)) }
     / method_call
     / atomic_expression
 
@@ -54,15 +64,24 @@ called -> ast::ExpressionList
     = __ "(" __ el:expression_list __ ")" { el }
 
 atomic_expression -> ast::Expression
-    = i:identifier { ast::Expression::Access(ast::Access::Identifier(i)) }
+    = __ v:literal { ast::Expression::Literal(v) }
+    / i:identifier { ast::Expression::Access(ast::Access::Identifier(i)) }
     / "(" __ e:expression __ ")" { e }
-    / __ v:literal { ast::Expression::Literal(v) }
 
 expression_list -> ast::ExpressionList
-    = (e:expression {e}) ** ","
+    = (__ e:expression __ {e}) ** ","
 
 literal -> runtime::Value
     = i:integer { runtime::Value::Number(i) }
+    / f:function { runtime::Value::Function(runtime::Rc::new(f)) }
+
+function -> runtime::Function
+    = "function" __ i:identifier? __ "(" p:parameters ")" __ "{" b:block "}" {
+        runtime::Function::User {id: i, parameters: p, body: b, source: match_str.to_string()}
+    }
+
+parameters -> Vec<ast::Identifier>
+    = (__ p:identifier __ { p }) ** ","
 
 __ = (whitespace / newline)*
 

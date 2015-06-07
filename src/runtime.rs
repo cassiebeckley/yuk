@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::fmt;
+use std::{fmt, iter};
 pub use std::rc::Rc;
 pub use std::cell::RefCell;
 
@@ -21,21 +21,38 @@ impl Access for Object {
 }
 
 pub enum Function {
-    Native(fn(Vec<Value>, &Object) -> Value)
+    Native(fn(Vec<Value>, &mut Object) -> Value),
+    User {id: Option<ast::Identifier>, parameters: Vec<String>, body: ast::Block, source: String}
 }
 
 impl fmt::Debug for Function {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            &Function::Native(_) => fmt.write_str("Native([native code])")
+            &Function::Native(_) => fmt.write_str("Native([native code])"),
+            &Function::User {
+                id: ref i,
+                parameters: ref p,
+                body: ref b,
+                source: _
+            } => fmt.write_fmt(format_args!("User {{ id: {:?}, parameters: {:?}, body: {:?} }}", i, p, b))
         }
     }
 }
 
 impl Function {
-    fn apply(&self, arguments: Vec<Value>, env: &Object) -> Value {
+    fn apply(&self, arguments: Vec<Value>, env: &mut Object) -> Value {
         match self {
-            &Function::Native(f) => f(arguments, env)
+            &Function::Native(f) => f(arguments, env),
+            &Function::User {id: ref i, parameters: ref p, body: ref b, source: _} => {
+                let mut inner_env = Object::new();
+                let undef = Value::Undefined;
+                for (argument, parameter) in arguments.iter().chain(iter::repeat(&undef)).zip(p) {
+                    inner_env.insert(parameter.clone(), argument.clone());
+                }
+
+                println!("Function {:?} called with {:?}", i, inner_env);
+                eval(b, env)
+            }
         }
     }
 }
@@ -50,7 +67,7 @@ pub enum Value {
 
 // TODO: replace all panic!s with JavaScript exception handling
 
-fn apply(function: Value, arguments: Vec<Value>, env: &Object) -> Value {
+fn apply(function: Value, arguments: Vec<Value>, env: &mut Object) -> Value {
     match &function {
         &Value::Function(ref f) => f.apply(arguments, env),
         _ => panic!("{:?} is not a function", function)
@@ -115,14 +132,14 @@ fn eval_expression(expression: &ast::Expression, env: &mut Object) -> Value {
     }
 }
 
-fn eval_statement(statement: ast::Statement, env: &mut Object) -> Value {
+fn eval_statement(statement: &ast::Statement, env: &mut Object) -> Value {
     match statement {
-        ast::Statement::Expression(e) => eval_expression(&e, env).clone(),
-        ast::Statement::Empty => Value::Undefined
+        &ast::Statement::Expression(ref e) => eval_expression(e, env).clone(),
+        &ast::Statement::Empty => Value::Undefined
     }
 }
 
-pub fn eval(program: ast::Block, env: &mut Object) -> Value {
+pub fn eval(program: &ast::Block, env: &mut Object) -> Value {
     let mut last = Value::Undefined;
     for statement in program {
         last = eval_statement(statement, env);
