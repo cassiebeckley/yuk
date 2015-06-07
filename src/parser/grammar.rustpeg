@@ -9,7 +9,8 @@ statement -> ast::Statement
     / __ ";" { ast::Statement::Empty }
 
 expression -> ast::Expression
-    = __ method_call
+    = lhs:access __ "=" __ rhs:expression { ast::Expression::Assignment(lhs, Box::new(rhs)) }
+    / method_call
     / atomic_expression
 
 method_call -> ast::Expression

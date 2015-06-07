@@ -11,7 +11,7 @@ pub enum Statement {
 
 #[derive(Debug)]
 pub enum Expression {
-    // Assignment(Access, Box<Expression>),
+    Assignment(Access, Box<Expression>),
     Access(Access),
     Call(Box<Expression>, ExpressionList),
     Literal(Value)

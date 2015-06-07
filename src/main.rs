@@ -1,11 +1,15 @@
 extern crate ack;
 
+#[macro_use]
+extern crate maplit;
+
 use std::io;
 use std::io::prelude::*;
 // use std::fs;
 
 use ack::parser;
 use ack::runtime;
+use ack::runtime::{Rc, RefCell};
 
 fn console_log(arguments: Vec<runtime::Value>, _: &runtime::Object) -> runtime::Value {
     for value in arguments {
@@ -24,6 +28,14 @@ fn main() {
 
     //     s
     // };
+
+    // initialize global object
+
+    let mut global = hashmap!{
+        "console".to_string() => runtime::Value::Object(Rc::new(RefCell::new(hashmap!{
+            "log".to_string() => runtime::Value::Function(Rc::new(runtime::Function::Native(console_log)))
+        })))
+    };
 
     loop {
         print!(">>> ");
@@ -66,11 +78,7 @@ fn main() {
 
         match parsed {
             Ok(ast) => {
-                let mut global = runtime::Object::new();
-                let mut console = runtime::Object::new();
-                console.insert("log".to_string(), runtime::Value::Function(runtime::Rc::new(runtime::Function::Native(console_log))));
-                global.insert("console".to_string(), runtime::Value::Object(console));
-                let result = runtime::eval(ast, global);
+                let result = runtime::eval(ast, &mut global);
                 println!("Result: {:?}", result);
             },
             Err(e) => println!("{:?}", e)
