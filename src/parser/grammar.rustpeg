@@ -9,40 +9,53 @@ statement -> ast::Statement
     / __ ";" { ast::Statement::Empty }
 
 expression -> ast::Expression
-    = __ o:method_call accesses:dotted {
-        let mut ret = o;
-        for e in accesses {
-            ret = ast::Expression::Member(Box::new(ret), e)
-        }
-        ret
-    }
-    / method_call
+    = __ method_call
+    / atomic_expression
 
 method_call -> ast::Expression
-    = access:member_access calls:(__ "(" el:expression_list __ ")" { el } )* {
-        let mut ret = access;
-        for e in calls {
-            ret = ast::Expression::Call(Box::new(ret), e)
+    = f:access calls:called* {
+        let mut func = ast::Expression::Access(f);
+        for el in calls {
+            func = ast::Expression::Call(Box::new(func), el)
         }
-        ret
+        func
     }
 
-member_access -> ast::Expression
-    = o:atomic_expression accesses:dotted {
-        let mut ret = o;
-        for e in accesses {
-            ret = ast::Expression::Member(Box::new(ret), e)
+access -> ast::Access
+    = p:atomic_expression c:call_access+ {
+        let mut iter = c.into_iter();
+        let (first_calls, first_id) = iter.next().unwrap();
+        let mut expr = p;
+        for call in first_calls {
+            expr = ast::Expression::Call(Box::new(expr), call)
         }
+        let mut ret = ast::Access::Member(Box::new(expr), first_id);
+
+        for (calls, id) in iter {
+            let mut expr = ast::Expression::Access(ret);
+            for call in calls {
+                expr = ast::Expression::Call(Box::new(expr), call)
+            }
+            ret = ast::Access::Member(Box::new(expr), id)
+        }
+
         ret
     }
+    / i:identifier { ast::Access::Identifier(i) }
 
-dotted -> Vec<ast::Identifier>
-    = (__ "." __ i:identifier { i })*
+call_access -> (Vec<ast::ExpressionList>, ast::Identifier)
+    = c:called* d:dotted { (c, d) }
+
+dotted -> ast::Identifier
+    = __ "." __ i:identifier { i }
+
+called -> ast::ExpressionList
+    = __ "(" __ el:expression_list __ ")" { el }
 
 atomic_expression -> ast::Expression
-    = i:identifier { ast::Expression::Identifier(i) }
+    = i:identifier { ast::Expression::Access(ast::Access::Identifier(i)) }
     / "(" __ e:expression __ ")" { e }
-    / v:literal { ast::Expression::Literal(v) }
+    / __ v:literal { ast::Expression::Literal(v) }
 
 expression_list -> ast::ExpressionList
     = (e:expression {e}) ** ","

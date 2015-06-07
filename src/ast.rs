@@ -11,10 +11,16 @@ pub enum Statement {
 
 #[derive(Debug)]
 pub enum Expression {
-    Call(Box<Expression>, Vec<Expression>),
-    Member(Box<Expression>, Identifier),
-    Identifier(Identifier),
+    // Assignment(Access, Box<Expression>),
+    Access(Access),
+    Call(Box<Expression>, ExpressionList),
     Literal(Value)
+}
+
+#[derive(Debug)]
+pub enum Access {
+    Member(Box<Expression>, Identifier),
+    Identifier(Identifier)
 }
 
 pub type Identifier = String;

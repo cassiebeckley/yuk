@@ -77,11 +77,18 @@ fn eval_expression_list(expressions: &Vec<ast::Expression>, env: &Object) -> Vec
     values
 }
 
+fn eval_access(access: &ast::Access, env: &Object) -> Value {
+    match access {
+        &ast::Access::Member(ref e, ref i) => lookup(eval_expression(e, env), i),
+        &ast::Access::Identifier(ref i) => env.access(i)
+    }
+}
+
 fn eval_expression(expression: &ast::Expression, env: &Object) -> Value {
     match expression {
+        // &ast::Expression::Assignment(ref lhs, ref rhs) => panic!("I have absolutely no idea how to do that"),
         &ast::Expression::Call(ref f, ref a) => apply(eval_expression(f, env), eval_expression_list(a, env), env),
-        &ast::Expression::Member(ref e, ref i) => lookup(eval_expression(e, env), i),
-        &ast::Expression::Identifier(ref i) => env.access(i),
+        &ast::Expression::Access(ref a) => eval_access(a, env),
         // TODO: get rid of clone
         &ast::Expression::Literal(ref l) => l.clone()
     }
