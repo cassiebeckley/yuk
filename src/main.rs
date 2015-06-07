@@ -4,7 +4,6 @@ use std::io;
 use std::io::prelude::*;
 // use std::fs;
 
-use ack::lexer::Lexer;
 use ack::parser;
 use ack::runtime;
 
@@ -59,13 +58,6 @@ fn main() {
 
             total
         };
-
-        for token in Lexer::new(&source) {
-            // println!("{}", token.to_string());
-            println!("{:?}", token);
-        }
-
-        println!("");
 
         let parsed = parser::parse(&source);
 
