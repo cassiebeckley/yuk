@@ -31,9 +31,33 @@ fn main() {
         io::stdout().flush().unwrap();
 
         let source = {
-            let mut s = String::new();
-            io::stdin().read_line(&mut s).unwrap();
-            s
+            let mut total = String::new();
+
+            // hacky, but it's just a temporary testing solution
+            let mut again = true;
+
+            while again {
+                again = false;
+                let mut line = String::new();
+                io::stdin().read_line(&mut line).unwrap();
+
+                let mut s: Vec<char> = line.trim().chars().collect();
+                let last = s.pop();
+
+                match last {
+                    Some('\\') => again = true,
+                    Some(c) => s.push(c),
+                    None => ()
+                }
+
+                s.push('\n');
+
+                for c in s {
+                    total.push(c)
+                }
+            }
+
+            total
         };
 
         for token in Lexer::new(&source) {
@@ -48,13 +72,16 @@ fn main() {
         println!("");
         println!("AST: {:?}", parsed);
 
-        if let Some(ast) = parsed {
-            let mut global = runtime::Object::new();
-            let mut console = runtime::Object::new();
-            console.insert("log".to_string(), runtime::Value::Function(runtime::Rc::new(runtime::Function::Native(console_log))));
-            global.insert("console".to_string(), runtime::Value::Object(console));
-            let result = runtime::eval(ast, global);
-            println!("Result: {:?}", result);
+        match parsed {
+            Ok(ast) => {
+                let mut global = runtime::Object::new();
+                let mut console = runtime::Object::new();
+                console.insert("log".to_string(), runtime::Value::Function(runtime::Rc::new(runtime::Function::Native(console_log))));
+                global.insert("console".to_string(), runtime::Value::Object(console));
+                let result = runtime::eval(ast, global);
+                println!("Result: {:?}", result);
+            },
+            Err(e) => println!("{:?}", e)
         }
     }
 }
