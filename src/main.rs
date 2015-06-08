@@ -9,9 +9,9 @@ use std::io::prelude::*;
 
 use ack::parser;
 use ack::runtime;
-use ack::runtime::{Rc, RefCell};
+use ack::runtime::{Dictionary, Rc, RefCell};
 
-fn console_log(arguments: Vec<runtime::Value>, _: &mut runtime::Object) -> runtime::Value {
+fn console_log(arguments: Vec<runtime::Value>, _: runtime::Value) -> runtime::Value {
     for value in arguments {
         print!("{:?} ", value);
     }
@@ -20,8 +20,8 @@ fn console_log(arguments: Vec<runtime::Value>, _: &mut runtime::Object) -> runti
     runtime::Value::Undefined
 }
 
-fn js_exit(_: Vec<runtime::Value>, env: &mut runtime::Object) -> runtime::Value {
-    env.insert("__running".to_string(), runtime::Value::Number(0.0));
+fn js_exit(_: Vec<runtime::Value>, env: runtime::Value) -> runtime::Value {
+    env.set(&"__running".to_string(), runtime::Value::Number(0.0));
 
     runtime::Value::Undefined
 }
@@ -37,16 +37,16 @@ fn main() {
 
     // initialize global object
 
-    let mut global = hashmap!{
-        "console".to_string() => runtime::Value::Object(Rc::new(RefCell::new(hashmap!{
+    let global = runtime::Value::Object(Rc::new(RefCell::new(runtime::Object::from_map(hashmap!{
+        "console".to_string() => runtime::Value::Object(Rc::new(RefCell::new(runtime::Object::from_map(hashmap!{
             "log".to_string() => runtime::Value::Function(Rc::new(runtime::Function::Native(console_log)))
-        }))),
+        })))),
         // TODO: be less terrible
         "__running".to_string() => runtime::Value::Number(1.0),
         "exit".to_string() => runtime::Value::Function(Rc::new(runtime::Function::Native(js_exit)))
-    };
+    }))));
 
-    while let &runtime::Value::Number(1.0) = global.get("__running").unwrap() {
+    while let runtime::Value::Number(1.0) = global.get(&"__running".to_string()) {
         print!(">>> ");
         io::stdout().flush().unwrap();
 
@@ -87,7 +87,7 @@ fn main() {
 
         match parsed {
             Ok(ast) => {
-                let result = runtime::eval(&ast, &mut global);
+                let result = runtime::eval(&ast, global.clone(), global.clone());
                 println!("Result: {:?}", result);
             },
             Err(e) => println!("{:?}", e)
