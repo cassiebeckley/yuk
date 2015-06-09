@@ -1122,12 +1122,12 @@ fn parse_literal<'input>(input: &'input str, state: &mut ParseState,
             {
                 let start_pos = pos;
                 {
-                    let seq_res = parse_integer(input, state, pos);
+                    let seq_res = parse_number(input, state, pos);
                     match seq_res {
-                        Matched(pos, i) => {
+                        Matched(pos, n) => {
                             {
                                 let match_str = &input[start_pos..pos];
-                                Matched(pos, { runtime::Value::Number(i) })
+                                Matched(pos, { runtime::Value::Number(n) })
                             }
                         }
                         Failed => Failed,
@@ -1488,12 +1488,248 @@ fn parse_identifier<'input>(input: &'input str, state: &mut ParseState,
         }
     }
 }
-fn parse_integer<'input>(input: &'input str, state: &mut ParseState,
-                         pos: usize) -> RuleResult<f64> {
+fn parse_number<'input>(input: &'input str, state: &mut ParseState,
+                        pos: usize) -> RuleResult<f64> {
     {
         let start_pos = pos;
         {
             let seq_res =
+                match slice_eq(input, state, pos, "-") {
+                    Matched(newpos, value) => { Matched(newpos, Some(value)) }
+                    Failed => { Matched(pos, None) }
+                };
+            match seq_res {
+                Matched(pos, _) => {
+                    {
+                        let seq_res =
+                            {
+                                let choice_res =
+                                    parse_frac(input, state, pos);
+                                match choice_res {
+                                    Matched(pos, value) =>
+                                    Matched(pos, value),
+                                    Failed => {
+                                        let seq_res =
+                                            {
+                                                let mut repeat_pos = pos;
+                                                let mut repeat_value = vec!();
+                                                loop  {
+                                                    let pos = repeat_pos;
+                                                    let step_res =
+                                                        if input.len() > pos {
+                                                            let (ch, next) =
+                                                                char_range_at(input,
+                                                                              pos);
+                                                            match ch {
+                                                                '0' ...'9' =>
+                                                                Matched(next,
+                                                                        ()),
+                                                                _ =>
+                                                                state.mark_failure(pos,
+                                                                                   "[0-9]"),
+                                                            }
+                                                        } else {
+                                                            state.mark_failure(pos,
+                                                                               "[0-9]")
+                                                        };
+                                                    match step_res {
+                                                        Matched(newpos, value)
+                                                        => {
+                                                            repeat_pos =
+                                                                newpos;
+                                                            repeat_value.push(value);
+                                                        }
+                                                        Failed => { break ; }
+                                                    }
+                                                }
+                                                if repeat_value.len() >=
+                                                       1usize {
+                                                    Matched(repeat_pos, ())
+                                                } else { Failed }
+                                            };
+                                        match seq_res {
+                                            Matched(pos, _) => {
+                                                parse_frac_opt(input, state,
+                                                               pos)
+                                            }
+                                            Failed => Failed,
+                                        }
+                                    }
+                                }
+                            };
+                        match seq_res {
+                            Matched(pos, _) => {
+                                {
+                                    let seq_res =
+                                        match {
+                                                  let seq_res =
+                                                      {
+                                                          let choice_res =
+                                                              slice_eq(input,
+                                                                       state,
+                                                                       pos,
+                                                                       "e");
+                                                          match choice_res {
+                                                              Matched(pos,
+                                                                      value)
+                                                              =>
+                                                              Matched(pos,
+                                                                      value),
+                                                              Failed =>
+                                                              slice_eq(input,
+                                                                       state,
+                                                                       pos,
+                                                                       "E"),
+                                                          }
+                                                      };
+                                                  match seq_res {
+                                                      Matched(pos, _) => {
+                                                          {
+                                                              let seq_res =
+                                                                  match {
+                                                                            let choice_res =
+                                                                                slice_eq(input,
+                                                                                         state,
+                                                                                         pos,
+                                                                                         "+");
+                                                                            match choice_res
+                                                                                {
+                                                                                Matched(pos,
+                                                                                        value)
+                                                                                =>
+                                                                                Matched(pos,
+                                                                                        value),
+                                                                                Failed
+                                                                                =>
+                                                                                slice_eq(input,
+                                                                                         state,
+                                                                                         pos,
+                                                                                         "-"),
+                                                                            }
+                                                                        } {
+                                                                      Matched(newpos,
+                                                                              value)
+                                                                      => {
+                                                                          Matched(newpos,
+                                                                                  Some(value))
+                                                                      }
+                                                                      Failed
+                                                                      => {
+                                                                          Matched(pos,
+                                                                                  None)
+                                                                      }
+                                                                  };
+                                                              match seq_res {
+                                                                  Matched(pos,
+                                                                          _)
+                                                                  => {
+                                                                      {
+                                                                          let mut repeat_pos =
+                                                                              pos;
+                                                                          let mut repeat_value =
+                                                                              vec!();
+                                                                          loop 
+                                                                               {
+                                                                              let pos =
+                                                                                  repeat_pos;
+                                                                              let step_res =
+                                                                                  if input.len()
+                                                                                         >
+                                                                                         pos
+                                                                                     {
+                                                                                      let (ch,
+                                                                                           next) =
+                                                                                          char_range_at(input,
+                                                                                                        pos);
+                                                                                      match ch
+                                                                                          {
+                                                                                          '0'
+                                                                                          ...'9'
+                                                                                          =>
+                                                                                          Matched(next,
+                                                                                                  ()),
+                                                                                          _
+                                                                                          =>
+                                                                                          state.mark_failure(pos,
+                                                                                                             "[0-9]"),
+                                                                                      }
+                                                                                  } else {
+                                                                                      state.mark_failure(pos,
+                                                                                                         "[0-9]")
+                                                                                  };
+                                                                              match step_res
+                                                                                  {
+                                                                                  Matched(newpos,
+                                                                                          value)
+                                                                                  =>
+                                                                                  {
+                                                                                      repeat_pos
+                                                                                          =
+                                                                                          newpos;
+                                                                                      repeat_value.push(value);
+                                                                                  }
+                                                                                  Failed
+                                                                                  =>
+                                                                                  {
+                                                                                      break
+                                                                                          ;
+                                                                                  }
+                                                                              }
+                                                                          }
+                                                                          if repeat_value.len()
+                                                                                 >=
+                                                                                 1usize
+                                                                             {
+                                                                              Matched(repeat_pos,
+                                                                                      ())
+                                                                          } else {
+                                                                              Failed
+                                                                          }
+                                                                      }
+                                                                  }
+                                                                  Failed =>
+                                                                  Failed,
+                                                              }
+                                                          }
+                                                      }
+                                                      Failed => Failed,
+                                                  }
+                                              } {
+                                            Matched(newpos, value) => {
+                                                Matched(newpos, Some(value))
+                                            }
+                                            Failed => { Matched(pos, None) }
+                                        };
+                                    match seq_res {
+                                        Matched(pos, _) => {
+                                            {
+                                                let match_str =
+                                                    &input[start_pos..pos];
+                                                Matched(pos,
+                                                        {
+                                                            match_str.parse().unwrap()
+                                                        })
+                                            }
+                                        }
+                                        Failed => Failed,
+                                    }
+                                }
+                            }
+                            Failed => Failed,
+                        }
+                    }
+                }
+                Failed => Failed,
+            }
+        }
+    }
+}
+fn parse_frac<'input>(input: &'input str, state: &mut ParseState, pos: usize)
+ -> RuleResult<()> {
+    {
+        let seq_res = slice_eq(input, state, pos, ".");
+        match seq_res {
+            Matched(pos, _) => {
                 {
                     let mut repeat_pos = pos;
                     let mut repeat_value = vec!();
@@ -1518,12 +1754,27 @@ fn parse_integer<'input>(input: &'input str, state: &mut ParseState,
                     if repeat_value.len() >= 1usize {
                         Matched(repeat_pos, ())
                     } else { Failed }
+                }
+            }
+            Failed => Failed,
+        }
+    }
+}
+fn parse_frac_opt<'input>(input: &'input str, state: &mut ParseState,
+                          pos: usize) -> RuleResult<()> {
+    {
+        let start_pos = pos;
+        {
+            let seq_res =
+                match parse_frac(input, state, pos) {
+                    Matched(newpos, value) => { Matched(newpos, Some(value)) }
+                    Failed => { Matched(pos, None) }
                 };
             match seq_res {
                 Matched(pos, _) => {
                     {
                         let match_str = &input[start_pos..pos];
-                        Matched(pos, { match_str.parse().unwrap() })
+                        Matched(pos, { () })
                     }
                 }
                 Failed => Failed,

@@ -80,7 +80,7 @@ expression_list -> ast::ExpressionList
     = (__ e:expression __ {e}) ** ","
 
 literal -> runtime::Value
-    = i:integer { runtime::Value::Number(i) }
+    = n:number { runtime::Value::Number(n) }
     / f:function { runtime::Value::Function(runtime::Rc::new(f)) }
 
 function -> runtime::Function
@@ -102,6 +102,12 @@ newline
 identifier -> String
     = [a-zA-Z_]+ { match_str.to_string() }
 
-// TODO: number, not integer
-integer -> f64
-    = [0-9]+ { match_str.parse().unwrap() }
+number -> f64
+    // TODO: get rid of "-"? - once we have unary expressions it won't be necessary
+    = "-"? (frac / [0-9]+ frac_opt) (("e" / "E") ("+" / "-")? [0-9]+)? { match_str.parse().unwrap() }
+
+frac
+    = "." [0-9]+
+
+frac_opt
+    = frac? { () }
