@@ -1,12 +1,19 @@
 pub use super::runtime::Value;
 
 pub type Block = Vec<Statement>;
+
 pub type ExpressionList = Vec<Expression>;
 
 #[derive(Debug)]
 pub enum Statement {
     Expression(Expression),
+    Declaration(Declaration),
     Empty
+}
+
+#[derive(Debug)]
+pub enum Declaration {
+    Variable(Identifier, Option<Expression>)
 }
 
 #[derive(Debug)]

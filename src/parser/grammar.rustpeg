@@ -10,15 +10,23 @@ block -> ast::Block
         if let Some(last) = e {
             s.push(ast::Statement::Expression(last));
         }
+
         s
     }
 
 statement -> ast::Statement
-    = __ e:expression (__ ";" / whitespace* newline) { ast::Statement::Expression(e) }
+    = __ t:terminated (__ ";" / whitespace* newline) { t }
     / __ ";" { ast::Statement::Empty }
 
+terminated -> ast::Statement
+    = d:declaration { ast::Statement::Declaration(d) }
+    / e:expression { ast::Statement::Expression(e) }
+
+declaration -> ast::Declaration
+    = "var" __ id:identifier init:(__ "=" __ e:expression { e })? { ast::Declaration::Variable(id, init) }
+
 expression -> ast::Expression
-    = __ v:literal { ast::Expression::Literal(v) }
+    = v:literal { ast::Expression::Literal(v) }
     / lhs:access __ "=" __ rhs:expression { ast::Expression::Assignment(lhs, Box::new(rhs)) }
     / method_call
     / atomic_expression
@@ -64,7 +72,7 @@ called -> ast::ExpressionList
     = __ "(" __ el:expression_list __ ")" { el }
 
 atomic_expression -> ast::Expression
-    = __ v:literal { ast::Expression::Literal(v) }
+    = v:literal { ast::Expression::Literal(v) }
     / i:identifier { ast::Expression::Access(ast::Access::Identifier(i)) }
     / "(" __ e:expression __ ")" { e }
 

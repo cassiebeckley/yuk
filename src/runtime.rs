@@ -215,12 +215,31 @@ fn eval_expression(expression: &ast::Expression, local: Value, global: Value) ->
 fn eval_statement(statement: &ast::Statement, local: Value, global: Value) -> Value {
     match statement {
         &ast::Statement::Expression(ref e) => eval_expression(e, local, global).clone(),
+        &ast::Statement::Declaration(ref d) => match d {
+            &ast::Declaration::Variable(ref id, ref init) => {
+                if let &Some(ref expr) = init {
+                    local.set(id, eval_expression(expr, local.clone(), global.clone()));
+                }
+
+                Value::Undefined
+            }
+        },
         &ast::Statement::Empty => Value::Undefined
     }
 }
 
 pub fn eval(program: &ast::Block, local: Value, global: Value) -> Value {
     let mut last = Value::Undefined;
+
+    // inefficient but convenient to parse
+    for statement in program {
+        if let &ast::Statement::Declaration(ref decl) = statement {
+            match decl {
+                &ast::Declaration::Variable(ref id, _) => local.set(id, Value::Undefined)
+            };
+        }
+    }
+
     for statement in program {
         last = eval_statement(statement, local.clone(), global.clone());
     }
