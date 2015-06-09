@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::collections::hash_map::Entry;
 use std::{fmt, iter};
 pub use std::rc::Rc;
 pub use std::cell::RefCell;
@@ -7,14 +6,14 @@ pub use std::cell::RefCell;
 use super::ast;
 
 pub trait Dictionary {
-    fn get(&mut self, &String) -> Value;
+    fn get(&self, &String) -> Value;
     fn set(&mut self, &String, Value) -> Value;
 }
 
 #[derive(Debug, Clone)]
 pub struct Object {
     values: HashMap<String, Value>,
-    prototype: Option<Box<Object>>
+    prototype: Option<Rc<RefCell<Object>>>
 }
 
 impl Object {
@@ -25,12 +24,12 @@ impl Object {
         }
     }
 
-    pub fn create(proto: &Object) -> Object {
-        let proto: Object = proto.clone();
+    pub fn create(proto: Rc<RefCell<Object>>) -> Object {
+        let proto = proto.clone();
 
         Object {
             values: HashMap::new(),
-            prototype: Some(Box::new(proto))
+            prototype: Some(proto)
         }
     }
 
@@ -41,38 +40,33 @@ impl Object {
         }
     }
 
-    fn entry(&mut self, key: &String) -> Entry<String, Value> {
-        match self.values.entry(key.clone()) {
-            o@Entry::Occupied(_) => o,
-            v@Entry::Vacant(_) => match self.prototype {
-                Some(ref mut proto) => {
-                    proto.entry(key)
-                },
-                None => v
-            }
+    fn outer_set(&mut self, key: &String, val: Value) -> Value {
+        if self.values.contains_key(key) {
+            self.values.insert(key.clone(), val.clone());
+        } else if let Some(ref proto) = self.prototype {
+            proto.borrow_mut().outer_set(key, val.clone());
+        } else {
+            self.values.insert(key.clone(), val.clone());
         }
+
+        val
     }
 }
 
 impl Dictionary for Object {
-    fn get(&mut self, key: &String) -> Value {
-        match self.entry(key) {
-            Entry::Occupied(o) => o.get().clone(),
-            Entry::Vacant(_) => Value::Undefined
+    fn get(&self, key: &String) -> Value {
+        match self.values.get(key) {
+            Some(v) => v.clone(),
+            None => match self.prototype {
+                Some(ref proto) => proto.borrow().get(key),
+                None => Value::Undefined
+            }
         }
     }
 
     fn set(&mut self, key: &String, val: Value) -> Value {
-        match self.entry(key) {
-            Entry::Occupied(ref mut o) => {
-                o.insert(val.clone());
-                val
-            },
-            Entry::Vacant(v) => {
-                v.insert(val.clone());
-                val
-            }
-        }
+        self.values.insert(key.clone(), val.clone());
+        val
     }
 }
 
@@ -112,20 +106,21 @@ impl Function {
     fn apply(&self, arguments: Vec<Value>, global: Value) -> Value {
         match self {
             &Function::Native(f) => f(arguments, global),
-            &Function::User {id: ref i, parameters: ref p, body: ref b, source: _} => {
+            &Function::User {id: _, parameters: ref p, body: ref b, source: _} => {
                 let glob = match global.clone() {
                     Value::Object(o) => o,
                     _ => panic!("{:?} is not an object", global)
                 };
 
-                let inner_env = Value::Object(Rc::new(RefCell::new(Object::create(&glob.borrow()))));
+                let inner_env = Value::Object(Rc::new(RefCell::new(Object::create(glob))));
                 let undef = Value::Undefined;
                 for (argument, parameter) in arguments.iter().chain(iter::repeat(&undef)).zip(p) {
                     inner_env.set(parameter, argument.clone());
                 }
 
-                println!("Function {:?} called with {:?}", i, inner_env);
-                eval(b, inner_env, global)
+                eval(b, inner_env.clone(), global);
+
+                Value::Undefined
             }
         }
     }
@@ -150,10 +145,14 @@ impl Value {
 
     pub fn set(&self, key: &String, val: Value) -> Value {
         match self {
-            &Value::Object(ref map) => {
-                map.borrow_mut().set(key, val);
-                map.borrow_mut().get(key)
-            },
+            &Value::Object(ref map) => map.borrow_mut().set(key, val),
+            _ => panic!("{:?} is not an object (TODO: treat functions as objects)", self)
+        }
+    }
+
+    pub fn outer_set(&self, key: &String, val: Value) -> Value {
+        match self {
+            &Value::Object(ref map) => map.borrow_mut().outer_set(key, val),
             _ => panic!("{:?} is not an object (TODO: treat functions as objects)", self)
         }
     }
@@ -168,55 +167,54 @@ fn apply(function: Value, arguments: Vec<Value>, env: Value) -> Value {
     }
 }
 
-fn eval_expression_list(expressions: &Vec<ast::Expression>, env: Value) -> Vec<Value> {
+fn eval_expression_list(expressions: &Vec<ast::Expression>, local: Value, global: Value) -> Vec<Value> {
     let mut values = vec![];
 
     for e in expressions {
-        let val: Value = eval_expression(e, env.clone());
+        let val: Value = eval_expression(e, local.clone(), global.clone());
         values.push(val);
     }
 
     values
 }
 
-fn access_get(access: &ast::Access, env: Value) -> Value {
+fn access_get(access: &ast::Access, local: Value, global: Value) -> Value {
     match access {
-        &ast::Access::Member(ref e, ref i) => eval_expression(e, env).get(i),
-        &ast::Access::Identifier(ref i) => env.get(i)
+        &ast::Access::Member(ref e, ref i) => eval_expression(e, local, global).get(i),
+        &ast::Access::Identifier(ref i) => local.get(i)
     }
 }
 
-fn access_set(access: &ast::Access, env: Value, val: Value) -> Value {
+fn access_set(access: &ast::Access, local: Value, global: Value, val: Value) -> Value {
     match access {
-        &ast::Access::Member(ref e, ref i) => eval_expression(e, env).set(i, val),
+        &ast::Access::Member(ref e, ref i) => eval_expression(e, local, global).set(i, val),
         &ast::Access::Identifier(ref i) => {
-            env.set(i, val);
-            env.get(i)
+            local.outer_set(i, val);
+            local.get(i)
         }
     }
 }
 
-fn eval_expression(expression: &ast::Expression, env: Value) -> Value {
+fn eval_expression(expression: &ast::Expression, local: Value, global: Value) -> Value {
     match expression {
         &ast::Expression::Assignment(ref lhs, ref rhs) => {
-            let rhs = eval_expression(rhs, env.clone());
-            access_set(lhs, env, rhs)
+            let rhs = eval_expression(rhs, local.clone(), global.clone());
+            access_set(lhs, local, global, rhs)
         },
-        &ast::Expression::Call(ref f, ref a) => apply(eval_expression(f, env.clone()), eval_expression_list(a, env.clone()), env),
-        &ast::Expression::Access(ref a) => access_get(a, env),
+        &ast::Expression::Call(ref f, ref a) => {
+            let func = eval_expression(f, local.clone(), global.clone()); 
+            let args = eval_expression_list(a, local.clone(), global.clone());
+            apply(func, args, global)
+        },
+        &ast::Expression::Access(ref a) => access_get(a, local, global),
         // TODO: get rid of clone
         &ast::Expression::Literal(ref l) => l.clone()
     }
 }
 
 fn eval_statement(statement: &ast::Statement, local: Value, global: Value) -> Value {
-    let local = match local {
-        Value::Object(_) => local,
-        _ => panic!("local must be an object")
-    };
-
     match statement {
-        &ast::Statement::Expression(ref e) => eval_expression(e, local).clone(),
+        &ast::Statement::Expression(ref e) => eval_expression(e, local, global).clone(),
         &ast::Statement::Empty => Value::Undefined
     }
 }

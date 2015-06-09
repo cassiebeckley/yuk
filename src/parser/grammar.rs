@@ -187,76 +187,99 @@ fn parse_statement<'input>(input: &'input str, state: &mut ParseState,
             {
                 let start_pos = pos;
                 {
-                    let seq_res = parse_expression(input, state, pos);
+                    let seq_res = parse___(input, state, pos);
                     match seq_res {
-                        Matched(pos, e) => {
+                        Matched(pos, _) => {
                             {
                                 let seq_res =
-                                    {
-                                        let choice_res =
-                                            {
-                                                let seq_res =
-                                                    parse___(input, state,
-                                                             pos);
-                                                match seq_res {
-                                                    Matched(pos, _) => {
-                                                        slice_eq(input, state,
-                                                                 pos, ";")
-                                                    }
-                                                    Failed => Failed,
-                                                }
-                                            };
-                                        match choice_res {
-                                            Matched(pos, value) =>
-                                            Matched(pos, value),
-                                            Failed => {
-                                                let seq_res =
-                                                    {
-                                                        let mut repeat_pos =
-                                                            pos;
-                                                        loop  {
-                                                            let pos =
-                                                                repeat_pos;
-                                                            let step_res =
-                                                                parse_whitespace(input,
-                                                                                 state,
-                                                                                 pos);
-                                                            match step_res {
-                                                                Matched(newpos,
-                                                                        value)
-                                                                => {
-                                                                    repeat_pos
-                                                                        =
-                                                                        newpos;
+                                    parse_expression(input, state, pos);
+                                match seq_res {
+                                    Matched(pos, e) => {
+                                        {
+                                            let seq_res =
+                                                {
+                                                    let choice_res =
+                                                        {
+                                                            let seq_res =
+                                                                parse___(input,
+                                                                         state,
+                                                                         pos);
+                                                            match seq_res {
+                                                                Matched(pos,
+                                                                        _) =>
+                                                                {
+                                                                    slice_eq(input,
+                                                                             state,
+                                                                             pos,
+                                                                             ";")
                                                                 }
-                                                                Failed => {
-                                                                    break ;
+                                                                Failed =>
+                                                                Failed,
+                                                            }
+                                                        };
+                                                    match choice_res {
+                                                        Matched(pos, value) =>
+                                                        Matched(pos, value),
+                                                        Failed => {
+                                                            let seq_res =
+                                                                {
+                                                                    let mut repeat_pos =
+                                                                        pos;
+                                                                    loop  {
+                                                                        let pos =
+                                                                            repeat_pos;
+                                                                        let step_res =
+                                                                            parse_whitespace(input,
+                                                                                             state,
+                                                                                             pos);
+                                                                        match step_res
+                                                                            {
+                                                                            Matched(newpos,
+                                                                                    value)
+                                                                            =>
+                                                                            {
+                                                                                repeat_pos
+                                                                                    =
+                                                                                    newpos;
+                                                                            }
+                                                                            Failed
+                                                                            =>
+                                                                            {
+                                                                                break
+                                                                                    ;
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                    Matched(repeat_pos,
+                                                                            ())
+                                                                };
+                                                            match seq_res {
+                                                                Matched(pos,
+                                                                        _) =>
+                                                                {
+                                                                    parse_newline(input,
+                                                                                  state,
+                                                                                  pos)
                                                                 }
+                                                                Failed =>
+                                                                Failed,
                                                             }
                                                         }
-                                                        Matched(repeat_pos,
-                                                                ())
-                                                    };
-                                                match seq_res {
-                                                    Matched(pos, _) => {
-                                                        parse_newline(input,
-                                                                      state,
-                                                                      pos)
                                                     }
-                                                    Failed => Failed,
-                                                }
-                                            }
-                                        }
-                                    };
-                                match seq_res {
-                                    Matched(pos, _) => {
-                                        {
-                                            let match_str =
-                                                &input[start_pos..pos];
-                                            Matched(pos,
+                                                };
+                                            match seq_res {
+                                                Matched(pos, _) => {
                                                     {
-                                                        ast::Statement::Expression(e)
-                                                    })
+                                                        let match_str =
+                                                            &input[start_pos..pos];
+                                                        Matched(pos,
+                                                                {
+                                                                    ast::Statement::Expression(e)
+                                                                })
+                                                    }
+                                                }
+                                                Failed => Failed,
+                                            }
                                         }
                                     }
                                     Failed => Failed,

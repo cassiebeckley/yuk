@@ -14,7 +14,7 @@ block -> ast::Block
     }
 
 statement -> ast::Statement
-    = e:expression (__ ";" / whitespace* newline) { ast::Statement::Expression(e) }
+    = __ e:expression (__ ";" / whitespace* newline) { ast::Statement::Expression(e) }
     / __ ";" { ast::Statement::Empty }
 
 expression -> ast::Expression

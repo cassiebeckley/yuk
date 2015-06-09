@@ -46,6 +46,8 @@ fn main() {
         "exit".to_string() => runtime::Value::Function(Rc::new(runtime::Function::Native(js_exit)))
     }))));
 
+    // global.set(&"global".to_string(), global.clone());
+
     while let runtime::Value::Number(1.0) = global.get(&"__running".to_string()) {
         print!(">>> ");
         io::stdout().flush().unwrap();
