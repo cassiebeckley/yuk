@@ -208,7 +208,7 @@ impl Value {
 }
 
 // TODO: Use proper exceptions, rather than strings
-fn throw_string<T>(err: String) -> Result<T, Value> {
+pub fn throw_string<T>(err: String) -> Result<T, Value> {
     Err(Value::String(err))
 }
 
@@ -225,7 +225,8 @@ fn eval_call(function: &ast::Expression, arguments: &ast::ExpressionList, local:
 
     let this = match function {
         &ast::Expression::Access(ref a) => match a {
-            &ast::Access::Member(_, _) => try!(access_get(a, local, global.clone())),
+            // TODO: This is probably bad -- p is evaluated **twice**, and therefore side effects happen twice
+            &ast::Access::Member(ref p, _) => try!(eval_expression(p, local, global.clone())),
             _ => Value::Object(global.clone())
         },
         _ => Value::Object(global.clone())

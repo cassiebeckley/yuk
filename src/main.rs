@@ -11,7 +11,7 @@ use ack::parser;
 use ack::runtime;
 use ack::runtime::{Rc};
 
-fn console_log(this: runtime::Value, arguments: Vec<runtime::Value>, global: runtime::Object) -> runtime::JSResult {
+fn console_log(this: runtime::Value, arguments: Vec<runtime::Value>, _: runtime::Object) -> runtime::JSResult {
     for value in arguments {
         print!("{} ", value.debug_string());
     }
@@ -23,14 +23,14 @@ fn console_log(this: runtime::Value, arguments: Vec<runtime::Value>, global: run
 fn number_prototype_to_string(this: runtime::Value, _: Vec<runtime::Value>, _: runtime::Object) -> runtime::JSResult {
     match this {
         runtime::Value::Number(n) => Ok(runtime::Value::String(n.to_string())),
-        _ => panic!("{:?} is not a number!", this)
+        _ => runtime::throw_string(format!("{:?} is not a number!", this))
     }
 }
 
 fn string_prototype_to_string(this: runtime::Value, _: Vec<runtime::Value>, _: runtime::Object) -> runtime::JSResult {
     match this {
         runtime::Value::String(s) => Ok(runtime::Value::String(s.to_string())),
-        _ => panic!("{:?} is not a string!", this)
+        _ => runtime::throw_string(format!("{:?} is not a string!", this))
     }
 }
 
