@@ -16,8 +16,8 @@ impl Ack {
     pub fn eval(&mut self, source: &str) -> JSResult {
         let parsed = parser::parse(source);
 
-        println!("");
-        println!("AST: {:?}", parsed);
+        // println!("");
+        // println!("AST: {:?}", parsed);
 
         match parsed {
             Ok(ast) => interpret::eval_block(&ast, self.global.clone(), self.global.clone()),
@@ -47,7 +47,7 @@ pub fn create_stdlib() -> interpret::Object {
     })
 }
 
-fn console_log(this: interpret::Value, arguments: Vec<interpret::Value>, _: interpret::Object) -> interpret::JSResult {
+fn console_log(_: interpret::Value, arguments: Vec<interpret::Value>, _: interpret::Object) -> interpret::JSResult {
     for value in arguments {
         print!("{} ", value.debug_string());
     }

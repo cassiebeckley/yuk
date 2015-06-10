@@ -1,21 +1,17 @@
 extern crate ack;
+extern crate libc;
 
-use std::io;
-use std::io::prelude::*;
-// use std::fs;
+use std::{io, env, fs};
+use std::io::Write;
 
 use ack::parser;
 use ack::runtime::Ack;
 
-fn main() {
-    // let source = {
-    //     let mut f = fs::File::open("foo.js").ok().expect("Could not open foo.js");
-    //     let mut s = String::new();
-    //     f.read_to_string(&mut s).ok().expect("Could not read foo.js");
+fn is_interactive() -> bool {
+    (unsafe { libc::isatty(libc::STDIN_FILENO as i32) }) != 0
+}
 
-    //     s
-    // };
-
+fn start_repl() {
     let mut ack = Ack::new();
 
     loop {
@@ -38,5 +34,27 @@ fn main() {
         };
 
         println!("Result: {:?}", ack.eval(&source));
+    }
+}
+
+fn run_script<T: io::Read>(mut file: T) -> bool {
+    let source = {
+        let mut s = String::new();
+        file.read_to_string(&mut s).ok().expect("Could not read file");
+
+        s
+    };
+
+    Ack::new().eval(&source).is_ok()
+}
+
+fn main() {
+    if let Some(filename) = env::args().nth(1) {
+        let file = fs::File::open(&filename).ok().expect(&format!("Could not open {}", filename));
+        run_script(file);
+    } else if is_interactive() {
+        start_repl();
+    } else {
+        run_script(io::stdin());
     }
 }
