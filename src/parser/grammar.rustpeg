@@ -24,6 +24,7 @@ terminated -> ast::Statement
 
 declaration -> ast::Declaration
     = "var" __ id:identifier init:(__ "=" __ e:expression { e })? { ast::Declaration::Variable(id, init) }
+    / function_declaration
 
 expression -> ast::Expression
     = v:literal { ast::Expression::Literal(v) }
@@ -81,14 +82,22 @@ expression_list -> ast::ExpressionList
 
 literal -> runtime::Value
     = n:number { runtime::Value::Number(n) }
-    / f:function { runtime::Value::Function(runtime::Rc::new(f)) }
+    / f:function_literal { runtime::Value::Function(f) }
     / s:string { runtime::Value::String(s) }
     / "null" { runtime::Value::Object(runtime::Object::Null) }
     / "undefined" { runtime::Value::Undefined }
 
-function -> runtime::Function
+function_literal -> runtime::Function
     = "function" __ i:identifier? __ "(" p:parameters ")" __ "{" b:block "}" {
         runtime::Function::User {id: i, parameters: p, body: b, source: match_str.to_string()}
+    }
+
+function_declaration -> ast::Declaration
+    = "function" __ i:identifier __ "(" p:parameters ")" __ "{" b:block "}" {
+        ast::Declaration::Function(
+            i.clone(),
+            runtime::Function::User {id: Some(i), parameters: p, body: b, source: match_str.to_string()}
+        )
     }
 
 parameters -> Vec<ast::Identifier>

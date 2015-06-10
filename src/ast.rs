@@ -1,22 +1,23 @@
-pub use super::runtime::Value;
+pub use super::runtime::{Value, Function};
 
 pub type Block = Vec<Statement>;
 
 pub type ExpressionList = Vec<Expression>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Statement {
     Expression(Expression),
     Declaration(Declaration),
     Empty
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Declaration {
-    Variable(Identifier, Option<Expression>)
+    Variable(Identifier, Option<Expression>),
+    Function(Identifier, Function)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expression {
     Assignment(Access, Box<Expression>),
     Access(Access),
@@ -24,7 +25,7 @@ pub enum Expression {
     Literal(Value)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Access {
     Member(Box<Expression>, Identifier),
     Identifier(Identifier)

@@ -112,8 +112,9 @@ impl Object {
     }
 }
 
+#[derive(Clone)]
 pub enum Function {
-    Native(fn(Value, Vec<Value>, Object) -> Value),
+    Native(Rc<fn(Value, Vec<Value>, Object) -> Value>),
     User {id: Option<ast::Identifier>, parameters: Vec<String>, body: ast::Block, source: String}
 }
 
@@ -134,7 +135,7 @@ impl fmt::Debug for Function {
 impl Function {
     fn apply(&self, this: Value, arguments: Vec<Value>, global: Object) -> Value {
         match self {
-            &Function::Native(f) => f(this, arguments, global),
+            &Function::Native(ref f) => f(this, arguments, global),
             &Function::User {id: _, parameters: ref p, body: ref b, source: _} => {
                 // TODO: add this binding
                 let inner_env = Object::Plain(Rc::new(RefCell::new(PlainObject::create(global.clone()))));
@@ -163,7 +164,7 @@ impl Function {
 pub enum Value {
     Number(f64),
     String(String),
-    Function(Rc<Function>),
+    Function(Function),
     Object(Object),
     Undefined
 }
@@ -278,7 +279,8 @@ fn eval_statement(statement: &ast::Statement, local: Object, global: Object) -> 
                 }
 
                 Value::Undefined
-            }
+            },
+            _ => Value::Undefined
         },
         &ast::Statement::Empty => Value::Undefined
     }
@@ -291,7 +293,8 @@ pub fn eval(program: &ast::Block, local: Object, global: Object) -> Value {
     for statement in program {
         if let &ast::Statement::Declaration(ref decl) = statement {
             match decl {
-                &ast::Declaration::Variable(ref id, _) => local.set(id, Value::Undefined)
+                &ast::Declaration::Variable(ref id, _) => local.set(id, Value::Undefined),
+                &ast::Declaration::Function(ref id, ref f) => local.set(id, Value::Function(f.clone()))
             };
         }
     }

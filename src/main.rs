@@ -47,16 +47,16 @@ fn main() {
 
     let global = runtime::Object::from_map(hashmap!{
         "console".to_string() => runtime::Value::Object(runtime::Object::from_map(hashmap!{
-            "log".to_string() => runtime::Value::Function(Rc::new(runtime::Function::Native(console_log)))
+            "log".to_string() => runtime::Value::Function(runtime::Function::Native(Rc::new(console_log)))
         })),
         "Number".to_string() => runtime::Value::Object(runtime::Object::from_map(hashmap!{
             "prototype".to_string() => runtime::Value::Object(runtime::Object::from_map(hashmap!{
-                "toString".to_string() => runtime::Value::Function(Rc::new(runtime::Function::Native(number_prototype_to_string)))
+                "toString".to_string() => runtime::Value::Function(runtime::Function::Native(Rc::new(number_prototype_to_string)))
             }))
         })),
         "String".to_string() => runtime::Value::Object(runtime::Object::from_map(hashmap!{
             "prototype".to_string() => runtime::Value::Object(runtime::Object::from_map(hashmap!{
-                "toString".to_string() => runtime::Value::Function(Rc::new(runtime::Function::Native(string_prototype_to_string)))
+                "toString".to_string() => runtime::Value::Function(runtime::Function::Native(Rc::new(string_prototype_to_string)))
             }))
         })),
     });
