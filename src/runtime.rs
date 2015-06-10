@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 use std::{fmt, iter};
+
 pub use std::rc::Rc;
 pub use std::cell::RefCell;
 
 use super::ast;
+
+pub type JSResult = Result<Value, Value>;
 
 #[derive(Debug, Clone)]
 pub struct PlainObject {
@@ -83,24 +86,24 @@ impl Object {
         Object::Plain(Rc::new(RefCell::new(PlainObject::from_map(obj))))
     }
 
-    fn outer_set(&self, key: &str, val: Value) -> Value {
+    fn outer_set(&self, key: &str, val: Value) -> JSResult {
         match self {
-            &Object::Plain(ref obj) => obj.borrow_mut().outer_set(key, val),
-            &Object::Null => panic!("null has no properties")
+            &Object::Plain(ref obj) => Ok(obj.borrow_mut().outer_set(key, val)),
+            &Object::Null => throw_string("null has no properties".to_string())
         }
     }
 
-    pub fn get(&self, key: &str) -> Value {
+    pub fn get(&self, key: &str) -> JSResult {
         match self {
-            &Object::Plain(ref obj) => obj.borrow().get(key),
-            &Object::Null => panic!("null has no properties")
+            &Object::Plain(ref obj) => Ok(obj.borrow().get(key)),
+            &Object::Null => throw_string("null has no properties".to_string())
         }
     }
 
-    pub fn set(&self, key: &str, val: Value) -> Value {
+    pub fn set(&self, key: &str, val: Value) -> JSResult {
         match self {
-            &Object::Plain(ref obj) => obj.borrow_mut().set(key, val),
-            &Object::Null => panic!("null has no properties")
+            &Object::Plain(ref obj) => Ok(obj.borrow_mut().set(key, val)),
+            &Object::Null => throw_string("null has no properties".to_string())
         }
     }
 
@@ -114,7 +117,7 @@ impl Object {
 
 #[derive(Clone)]
 pub enum Function {
-    Native(Rc<fn(Value, Vec<Value>, Object) -> Value>),
+    Native(Rc<fn(Value, Vec<Value>, Object) -> JSResult>),
     User {id: Option<ast::Identifier>, parameters: Vec<String>, body: ast::Block, source: String}
 }
 
@@ -133,7 +136,7 @@ impl fmt::Debug for Function {
 }
 
 impl Function {
-    fn apply(&self, this: Value, arguments: Vec<Value>, global: Object) -> Value {
+    fn apply(&self, this: Value, arguments: Vec<Value>, global: Object) -> JSResult {
         match self {
             &Function::Native(ref f) => f(this, arguments, global),
             &Function::User {id: _, parameters: ref p, body: ref b, source: _} => {
@@ -141,12 +144,12 @@ impl Function {
                 let inner_env = Object::Plain(Rc::new(RefCell::new(PlainObject::create(global.clone()))));
                 let undef = Value::Undefined;
                 for (argument, parameter) in arguments.iter().chain(iter::repeat(&undef)).zip(p) {
-                    inner_env.set(parameter, argument.clone());
+                    try!(inner_env.set(parameter, argument.clone()));
                 }
 
-                eval(b, inner_env.clone(), global);
+                try!(eval(b, inner_env.clone(), global));
 
-                Value::Undefined
+                Ok(Value::Undefined)
             }
         }
     }
@@ -170,26 +173,26 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn get(&self, key: &str, global: Object) -> Value {
+    pub fn get(&self, key: &str, global: Object) -> JSResult {
         match self {
-            &Value::Number(_) => global.clone().get("Number").get("prototype", global.clone()).get(key, global),
-            &Value::String(_) => global.clone().get("String").get("prototype", global.clone()).get(key, global),
+            &Value::Number(_) => try!(try!(global.clone().get("Number")).get("prototype", global.clone())).get(key, global),
+            &Value::String(_) => try!(try!(global.clone().get("String")).get("prototype", global.clone())).get(key, global),
             &Value::Object(ref obj) => obj.get(key),
-            _ => panic!("{:?} is not an object (TODO: treat functions as objects)", self)
+            _ => throw_string(format!("{:?} is not an object (TODO: treat functions as objects)", self))
         }
     }
 
-    pub fn set(&self, key: &str, val: Value) -> Value {
+    pub fn set(&self, key: &str, val: Value) -> JSResult {
         match self {
             &Value::Object(ref obj) => obj.set(key, val),
-            _ => panic!("{:?} is not an object (TODO: treat functions as objects)", self)
+            _ => throw_string(format!("{:?} is not an object (TODO: treat functions as objects)", self))
         }
     }
 
-    pub fn outer_set(&self, key: &str, val: Value) -> Value {
+    pub fn outer_set(&self, key: &str, val: Value) -> JSResult {
         match self {
             &Value::Object(ref obj) => obj.outer_set(key, val),
-            _ => panic!("{:?} is not an object (TODO: treat functions as objects)", self)
+            _ => throw_string(format!("{:?} is not an object (TODO: treat functions as objects)", self))
         }
     }
 
@@ -204,22 +207,25 @@ impl Value {
     }
 }
 
-// TODO: replace all panic!s with JavaScript exception handling
+// TODO: Use proper exceptions, rather than strings
+fn throw_string<T>(err: String) -> Result<T, Value> {
+    Err(Value::String(err))
+}
 
-pub fn apply(function: Value, this: Value, arguments: Vec<Value>, global: Object) -> Value {
+pub fn apply(function: Value, this: Value, arguments: Vec<Value>, global: Object) -> JSResult {
     match &function {
         &Value::Function(ref f) => f.apply(this, arguments, global),
-        _ => panic!("{:?} is not a function", function)
+        _ => throw_string(format!("{:?} is not a function", function))
     }
 }
 
-fn eval_call(function: &ast::Expression, arguments: &ast::ExpressionList, local: Object, global: Object) -> Value {
-    let func = eval_expression(function, local.clone(), global.clone());
-    let args = eval_expression_list(arguments, local.clone(), global.clone());
+fn eval_call(function: &ast::Expression, arguments: &ast::ExpressionList, local: Object, global: Object) -> JSResult {
+    let func = try!(eval_expression(function, local.clone(), global.clone()));
+    let args = try!(eval_expression_list(arguments, local.clone(), global.clone()));
 
     let this = match function {
         &ast::Expression::Access(ref a) => match a {
-            &ast::Access::Member(_, _) => access_get(a, local, global.clone()),
+            &ast::Access::Member(_, _) => try!(access_get(a, local, global.clone())),
             _ => Value::Object(global.clone())
         },
         _ => Value::Object(global.clone())
@@ -228,80 +234,87 @@ fn eval_call(function: &ast::Expression, arguments: &ast::ExpressionList, local:
     apply(func, this, args, global)
 }
 
-fn eval_expression_list(expressions: &Vec<ast::Expression>, local: Object, global: Object) -> Vec<Value> {
+fn eval_expression_list(expressions: &Vec<ast::Expression>, local: Object, global: Object) -> Result<Vec<Value>, Value> {
     let mut values = vec![];
 
     for e in expressions {
-        let val: Value = eval_expression(e, local.clone(), global.clone());
+        let val: Value = try!(eval_expression(e, local.clone(), global.clone()));
         values.push(val);
     }
 
-    values
+    Ok(values)
 }
 
-fn access_get(access: &ast::Access, local: Object, global: Object) -> Value {
+fn access_get(access: &ast::Access, local: Object, global: Object) -> JSResult {
     match access {
-        &ast::Access::Member(ref e, ref i) => eval_expression(e, local, global.clone()).get(i, global),
+        &ast::Access::Member(ref e, ref i) => try!(eval_expression(e, local, global.clone())).get(i, global),
         &ast::Access::Identifier(ref i) => local.get(i)
     }
 }
 
-fn access_set(access: &ast::Access, local: Object, global: Object, val: Value) -> Value {
+fn access_set(access: &ast::Access, local: Object, global: Object, val: Value) -> JSResult {
     match access {
-        &ast::Access::Member(ref e, ref i) => eval_expression(e, local, global).set(i, val),
-        &ast::Access::Identifier(ref i) => {
-            local.outer_set(i, val);
-            local.get(i)
-        }
+        &ast::Access::Member(ref e, ref i) => try!(eval_expression(e, local, global)).set(i, val),
+        &ast::Access::Identifier(ref i) => local.outer_set(i, val)
     }
 }
 
-fn eval_expression(expression: &ast::Expression, local: Object, global: Object) -> Value {
+fn eval_expression(expression: &ast::Expression, local: Object, global: Object) -> JSResult {
     match expression {
         &ast::Expression::Assignment(ref lhs, ref rhs) => {
-            let rhs = eval_expression(rhs, local.clone(), global.clone());
+            let rhs = try!(eval_expression(rhs, local.clone(), global.clone()));
             access_set(lhs, local, global, rhs)
         },
         &ast::Expression::Call(ref f, ref a) => eval_call(f, a, local, global),
         &ast::Expression::Access(ref a) => access_get(a, local, global),
         // TODO: get rid of clone
-        &ast::Expression::Literal(ref l) => l.clone()
+        &ast::Expression::Literal(ref l) => Ok(l.clone())
     }
 }
 
-fn eval_statement(statement: &ast::Statement, local: Object, global: Object) -> Value {
+fn eval_statement(statement: &ast::Statement, local: Object, global: Object) -> JSResult {
     match statement {
-        &ast::Statement::Expression(ref e) => eval_expression(e, local, global).clone(),
+        &ast::Statement::Expression(ref e) => eval_expression(e, local, global),
         &ast::Statement::Declaration(ref d) => match d {
             &ast::Declaration::Variable(ref id, ref init) => {
                 if let &Some(ref expr) = init {
-                    local.set(id, eval_expression(expr, local.clone(), global.clone()));
+                    try!(local.set(id, try!(eval_expression(expr, local.clone(), global.clone()))));
                 }
 
-                Value::Undefined
+                Ok(Value::Undefined)
             },
-            _ => Value::Undefined
+            _ => Ok(Value::Undefined)
         },
-        &ast::Statement::Empty => Value::Undefined
+        &ast::Statement::Throw(ref e) => Err(try!(eval_expression(e, local, global))),
+        &ast::Statement::Empty => Ok(Value::Undefined)
     }
 }
 
-pub fn eval(program: &ast::Block, local: Object, global: Object) -> Value {
+pub fn eval(program: &ast::Block, local: Object, global: Object) -> JSResult {
     let mut last = Value::Undefined;
 
-    // inefficient but convenient to parse
+    // inefficient (I think) but convenient to parse
     for statement in program {
         if let &ast::Statement::Declaration(ref decl) = statement {
             match decl {
-                &ast::Declaration::Variable(ref id, _) => local.set(id, Value::Undefined),
-                &ast::Declaration::Function(ref id, ref f) => local.set(id, Value::Function(f.clone()))
+                &ast::Declaration::Variable(ref id, _) => try!(local.set(id, Value::Undefined)),
+                &ast::Declaration::Function(ref id, ref f) => try!(local.set(id, Value::Function(f.clone())))
             };
         }
     }
 
     for statement in program {
-        last = eval_statement(statement, local.clone(), global.clone());
+        last = try!(eval_statement(statement, local.clone(), global.clone()));
     }
 
-    last
+    Ok(last)
 }
+
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+
+//     // test PlainObject
+//     #[test]
+//     fn test_something(){}
+// }

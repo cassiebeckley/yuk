@@ -8,6 +8,7 @@ pub type ExpressionList = Vec<Expression>;
 pub enum Statement {
     Expression(Expression),
     Declaration(Declaration),
+    Throw(Expression),
     Empty
 }
 

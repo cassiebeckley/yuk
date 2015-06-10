@@ -341,18 +341,67 @@ fn parse_terminated<'input>(input: &'input str, state: &mut ParseState,
         match choice_res {
             Matched(pos, value) => Matched(pos, value),
             Failed => {
-                let start_pos = pos;
-                {
-                    let seq_res = parse_expression(input, state, pos);
-                    match seq_res {
-                        Matched(pos, e) => {
-                            {
-                                let match_str = &input[start_pos..pos];
-                                Matched(pos,
-                                        { ast::Statement::Expression(e) })
+                let choice_res =
+                    {
+                        let start_pos = pos;
+                        {
+                            let seq_res =
+                                slice_eq(input, state, pos, "throw");
+                            match seq_res {
+                                Matched(pos, _) => {
+                                    {
+                                        let seq_res =
+                                            parse___(input, state, pos);
+                                        match seq_res {
+                                            Matched(pos, _) => {
+                                                {
+                                                    let seq_res =
+                                                        parse_expression(input,
+                                                                         state,
+                                                                         pos);
+                                                    match seq_res {
+                                                        Matched(pos, e) => {
+                                                            {
+                                                                let match_str =
+                                                                    &input[start_pos..pos];
+                                                                Matched(pos,
+                                                                        {
+                                                                            ast::Statement::Throw(e)
+                                                                        })
+                                                            }
+                                                        }
+                                                        Failed => Failed,
+                                                    }
+                                                }
+                                            }
+                                            Failed => Failed,
+                                        }
+                                    }
+                                }
+                                Failed => Failed,
                             }
                         }
-                        Failed => Failed,
+                    };
+                match choice_res {
+                    Matched(pos, value) => Matched(pos, value),
+                    Failed => {
+                        let start_pos = pos;
+                        {
+                            let seq_res = parse_expression(input, state, pos);
+                            match seq_res {
+                                Matched(pos, e) => {
+                                    {
+                                        let match_str =
+                                            &input[start_pos..pos];
+                                        Matched(pos,
+                                                {
+                                                    ast::Statement::Expression(e)
+                                                })
+                                    }
+                                }
+                                Failed => Failed,
+                            }
+                        }
                     }
                 }
             }

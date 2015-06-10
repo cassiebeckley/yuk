@@ -20,6 +20,7 @@ statement -> ast::Statement
 
 terminated -> ast::Statement
     = d:declaration { ast::Statement::Declaration(d) }
+    / "throw" __ e:expression { ast::Statement::Throw(e) }
     / e:expression { ast::Statement::Expression(e) }
 
 declaration -> ast::Declaration
