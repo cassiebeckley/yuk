@@ -9,21 +9,29 @@ use std::io::prelude::*;
 
 use ack::parser;
 use ack::runtime;
-use ack::runtime::{Dictionary, Rc, RefCell};
+use ack::runtime::{Rc};
 
-fn console_log(arguments: Vec<runtime::Value>, _: runtime::Value) -> runtime::Value {
+fn console_log(this: runtime::Value, arguments: Vec<runtime::Value>, global: runtime::Object) -> runtime::Value {
     for value in arguments {
-        print!("{:?} ", value);
+        print!("{} ", value.debug_string());
     }
     println!("");
 
     runtime::Value::Undefined
 }
 
-fn js_exit(_: Vec<runtime::Value>, env: runtime::Value) -> runtime::Value {
-    env.set(&"__running".to_string(), runtime::Value::Number(0.0));
+fn number_prototype_to_string(this: runtime::Value, _: Vec<runtime::Value>, _: runtime::Object) -> runtime::Value {
+    match this {
+        runtime::Value::Number(n) => runtime::Value::String(n.to_string()),
+        _ => panic!("{:?} is not a number!", this)
+    }
+}
 
-    runtime::Value::Undefined
+fn string_prototype_to_string(this: runtime::Value, _: Vec<runtime::Value>, _: runtime::Object) -> runtime::Value {
+    match this {
+        runtime::Value::String(s) => runtime::Value::String(s.to_string()),
+        _ => panic!("{:?} is not a string!", this)
+    }
 }
 
 fn main() {
@@ -37,18 +45,25 @@ fn main() {
 
     // initialize global object
 
-    let global = runtime::Value::Object(Rc::new(RefCell::new(runtime::Object::from_map(hashmap!{
-        "console".to_string() => runtime::Value::Object(Rc::new(RefCell::new(runtime::Object::from_map(hashmap!{
+    let global = runtime::Object::from_map(hashmap!{
+        "console".to_string() => runtime::Value::Object(runtime::Object::from_map(hashmap!{
             "log".to_string() => runtime::Value::Function(Rc::new(runtime::Function::Native(console_log)))
-        })))),
-        // TODO: be less terrible
-        "__running".to_string() => runtime::Value::Number(1.0),
-        "exit".to_string() => runtime::Value::Function(Rc::new(runtime::Function::Native(js_exit)))
-    }))));
+        })),
+        "Number".to_string() => runtime::Value::Object(runtime::Object::from_map(hashmap!{
+            "prototype".to_string() => runtime::Value::Object(runtime::Object::from_map(hashmap!{
+                "toString".to_string() => runtime::Value::Function(Rc::new(runtime::Function::Native(number_prototype_to_string)))
+            }))
+        })),
+        "String".to_string() => runtime::Value::Object(runtime::Object::from_map(hashmap!{
+            "prototype".to_string() => runtime::Value::Object(runtime::Object::from_map(hashmap!{
+                "toString".to_string() => runtime::Value::Function(Rc::new(runtime::Function::Native(string_prototype_to_string)))
+            }))
+        })),
+    });
 
     // global.set(&"global".to_string(), global.clone());
 
-    while let runtime::Value::Number(1.0) = global.get(&"__running".to_string()) {
+    loop {
         print!(">>> ");
         io::stdout().flush().unwrap();
 

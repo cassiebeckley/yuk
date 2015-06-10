@@ -5,86 +5,115 @@ pub use std::cell::RefCell;
 
 use super::ast;
 
-pub trait Dictionary {
-    fn get(&self, &String) -> Value;
-    fn set(&mut self, &String, Value) -> Value;
-}
-
 #[derive(Debug, Clone)]
-pub struct Object {
+pub struct PlainObject {
     values: HashMap<String, Value>,
-    prototype: Option<Rc<RefCell<Object>>>
+    prototype: Object
 }
 
-impl Object {
-    pub fn new() -> Object {
-        Object {
+impl PlainObject {
+    pub fn new() -> PlainObject {
+        PlainObject {
             values: HashMap::new(),
-            prototype: None
+            prototype: Object::Null
         }
     }
 
-    pub fn create(proto: Rc<RefCell<Object>>) -> Object {
+    pub fn create(proto: Object) -> PlainObject {
         let proto = proto.clone();
 
-        Object {
+        PlainObject {
             values: HashMap::new(),
-            prototype: Some(proto)
+            prototype: proto
         }
     }
 
-    pub fn from_map(map: HashMap<String, Value>) -> Object {
-        Object {
+    pub fn from_map(map: HashMap<String, Value>) -> PlainObject {
+        PlainObject {
             values: map,
-            prototype: None
+            prototype: Object::Null
         }
     }
 
-    fn outer_set(&mut self, key: &String, val: Value) -> Value {
-        if self.values.contains_key(key) {
-            self.values.insert(key.clone(), val.clone());
-        } else if let Some(ref proto) = self.prototype {
-            proto.borrow_mut().outer_set(key, val.clone());
+    fn outer_set(&mut self, key: &str, val: Value) -> Value {
+        let key = key.to_string();
+        if self.values.contains_key(&key) {
+            self.values.insert(key, val.clone());
+        } else if let Object::Plain(ref proto) = self.prototype {
+            proto.borrow_mut().outer_set(&key, val.clone());
         } else {
-            self.values.insert(key.clone(), val.clone());
+            self.values.insert(key, val.clone());
         }
 
         val
     }
-}
 
-impl Dictionary for Object {
-    fn get(&self, key: &String) -> Value {
-        match self.values.get(key) {
+    fn get(&self, key: &str) -> Value {
+        match self.values.get(&key.to_string()) {
             Some(v) => v.clone(),
             None => match self.prototype {
-                Some(ref proto) => proto.borrow().get(key),
-                None => Value::Undefined
+                Object::Plain(ref proto) => proto.borrow().get(key),
+                Object::Null => Value::Undefined
             }
         }
     }
 
-    fn set(&mut self, key: &String, val: Value) -> Value {
-        self.values.insert(key.clone(), val.clone());
+    fn set(&mut self, key: &str, val: Value) -> Value {
+        self.values.insert(key.to_string(), val.clone());
         val
+    }
+
+    fn debug_string(&self) -> String {
+        let middle: String = self.values.iter()
+            .map(|(key, value)| "\"".to_string() + key + "\": " + &value.debug_string())
+            .fold("".to_string(), |result, next| if result.len() > 0 {result + ", " + &next} else {next});
+
+        "{".to_string() + &middle + "}"
     }
 }
 
-trait ToValue {
-    fn to_value(&self) -> Value;
+#[derive(Debug, Clone)]
+pub enum Object {
+    Plain(Rc<RefCell<PlainObject>>),
+    Null
 }
 
-impl <'a>ToValue for Option<&'a Value> {
-    fn to_value(&self) -> Value {
+impl Object {
+    pub fn from_map(obj: HashMap<String, Value>) -> Object {
+        Object::Plain(Rc::new(RefCell::new(PlainObject::from_map(obj))))
+    }
+
+    fn outer_set(&self, key: &str, val: Value) -> Value {
         match self {
-            &Some(val) => val.clone(),
-            &None => Value::Undefined
+            &Object::Plain(ref obj) => obj.borrow_mut().outer_set(key, val),
+            &Object::Null => panic!("null has no properties")
+        }
+    }
+
+    pub fn get(&self, key: &str) -> Value {
+        match self {
+            &Object::Plain(ref obj) => obj.borrow().get(key),
+            &Object::Null => panic!("null has no properties")
+        }
+    }
+
+    pub fn set(&self, key: &str, val: Value) -> Value {
+        match self {
+            &Object::Plain(ref obj) => obj.borrow_mut().set(key, val),
+            &Object::Null => panic!("null has no properties")
+        }
+    }
+
+    fn debug_string(&self) -> String {
+        match self {
+            &Object::Plain(ref o) => o.borrow().debug_string(),
+            &Object::Null => "null".to_string()
         }
     }
 }
 
 pub enum Function {
-    Native(fn(Vec<Value>, Value) -> Value),
+    Native(fn(Value, Vec<Value>, Object) -> Value),
     User {id: Option<ast::Identifier>, parameters: Vec<String>, body: ast::Block, source: String}
 }
 
@@ -103,16 +132,12 @@ impl fmt::Debug for Function {
 }
 
 impl Function {
-    fn apply(&self, arguments: Vec<Value>, global: Value) -> Value {
+    fn apply(&self, this: Value, arguments: Vec<Value>, global: Object) -> Value {
         match self {
-            &Function::Native(f) => f(arguments, global),
+            &Function::Native(f) => f(this, arguments, global),
             &Function::User {id: _, parameters: ref p, body: ref b, source: _} => {
-                let glob = match global.clone() {
-                    Value::Object(o) => o,
-                    _ => panic!("{:?} is not an object", global)
-                };
-
-                let inner_env = Value::Object(Rc::new(RefCell::new(Object::create(glob))));
+                // TODO: add this binding
+                let inner_env = Object::Plain(Rc::new(RefCell::new(PlainObject::create(global.clone()))));
                 let undef = Value::Undefined;
                 for (argument, parameter) in arguments.iter().chain(iter::repeat(&undef)).zip(p) {
                     inner_env.set(parameter, argument.clone());
@@ -124,50 +149,85 @@ impl Function {
             }
         }
     }
+
+    fn debug_string(&self) -> String {
+        match self {
+            &Function::Native(_) => "function() {\n    [native code]\n}".to_string(),
+            &Function::User {id: Some(ref id), parameters: _, body: _, source: _} => format!("function {}()", id),
+            &Function::User {id: None, parameters: _, body: _, source: _} => "function()".to_string(),
+        }
+    }
 }
 
 #[derive(Debug,Clone)]
 pub enum Value {
     Number(f64),
+    String(String),
     Function(Rc<Function>),
-    Object(Rc<RefCell<Object>>),
-    Null,
+    Object(Object),
     Undefined
 }
 
 impl Value {
-    pub fn get(&self, key: &String) -> Value {
+    pub fn get(&self, key: &str, global: Object) -> Value {
         match self {
-            &Value::Object(ref map) => map.borrow_mut().get(key),
+            &Value::Number(_) => global.clone().get("Number").get("prototype", global.clone()).get(key, global),
+            &Value::String(_) => global.clone().get("String").get("prototype", global.clone()).get(key, global),
+            &Value::Object(ref obj) => obj.get(key),
             _ => panic!("{:?} is not an object (TODO: treat functions as objects)", self)
         }
     }
 
-    pub fn set(&self, key: &String, val: Value) -> Value {
+    pub fn set(&self, key: &str, val: Value) -> Value {
         match self {
-            &Value::Object(ref map) => map.borrow_mut().set(key, val),
+            &Value::Object(ref obj) => obj.set(key, val),
             _ => panic!("{:?} is not an object (TODO: treat functions as objects)", self)
         }
     }
 
-    pub fn outer_set(&self, key: &String, val: Value) -> Value {
+    pub fn outer_set(&self, key: &str, val: Value) -> Value {
         match self {
-            &Value::Object(ref map) => map.borrow_mut().outer_set(key, val),
+            &Value::Object(ref obj) => obj.outer_set(key, val),
             _ => panic!("{:?} is not an object (TODO: treat functions as objects)", self)
+        }
+    }
+
+    pub fn debug_string(&self) -> String {
+        match self {
+            &Value::Number(n) => n.to_string(),
+            &Value::String(ref s) => s.to_string(),
+            &Value::Function(ref f) => f.debug_string(),
+            &Value::Object(ref o) => o.debug_string(),
+            &Value::Undefined => "undefined".to_string(),
         }
     }
 }
 
 // TODO: replace all panic!s with JavaScript exception handling
 
-fn apply(function: Value, arguments: Vec<Value>, env: Value) -> Value {
+pub fn apply(function: Value, this: Value, arguments: Vec<Value>, global: Object) -> Value {
     match &function {
-        &Value::Function(ref f) => f.apply(arguments, env),
+        &Value::Function(ref f) => f.apply(this, arguments, global),
         _ => panic!("{:?} is not a function", function)
     }
 }
 
-fn eval_expression_list(expressions: &Vec<ast::Expression>, local: Value, global: Value) -> Vec<Value> {
+fn eval_call(function: &ast::Expression, arguments: &ast::ExpressionList, local: Object, global: Object) -> Value {
+    let func = eval_expression(function, local.clone(), global.clone());
+    let args = eval_expression_list(arguments, local.clone(), global.clone());
+
+    let this = match function {
+        &ast::Expression::Access(ref a) => match a {
+            &ast::Access::Member(_, _) => access_get(a, local, global.clone()),
+            _ => Value::Object(global.clone())
+        },
+        _ => Value::Object(global.clone())
+    };
+
+    apply(func, this, args, global)
+}
+
+fn eval_expression_list(expressions: &Vec<ast::Expression>, local: Object, global: Object) -> Vec<Value> {
     let mut values = vec![];
 
     for e in expressions {
@@ -178,14 +238,14 @@ fn eval_expression_list(expressions: &Vec<ast::Expression>, local: Value, global
     values
 }
 
-fn access_get(access: &ast::Access, local: Value, global: Value) -> Value {
+fn access_get(access: &ast::Access, local: Object, global: Object) -> Value {
     match access {
-        &ast::Access::Member(ref e, ref i) => eval_expression(e, local, global).get(i),
+        &ast::Access::Member(ref e, ref i) => eval_expression(e, local, global.clone()).get(i, global),
         &ast::Access::Identifier(ref i) => local.get(i)
     }
 }
 
-fn access_set(access: &ast::Access, local: Value, global: Value, val: Value) -> Value {
+fn access_set(access: &ast::Access, local: Object, global: Object, val: Value) -> Value {
     match access {
         &ast::Access::Member(ref e, ref i) => eval_expression(e, local, global).set(i, val),
         &ast::Access::Identifier(ref i) => {
@@ -195,24 +255,20 @@ fn access_set(access: &ast::Access, local: Value, global: Value, val: Value) -> 
     }
 }
 
-fn eval_expression(expression: &ast::Expression, local: Value, global: Value) -> Value {
+fn eval_expression(expression: &ast::Expression, local: Object, global: Object) -> Value {
     match expression {
         &ast::Expression::Assignment(ref lhs, ref rhs) => {
             let rhs = eval_expression(rhs, local.clone(), global.clone());
             access_set(lhs, local, global, rhs)
         },
-        &ast::Expression::Call(ref f, ref a) => {
-            let func = eval_expression(f, local.clone(), global.clone()); 
-            let args = eval_expression_list(a, local.clone(), global.clone());
-            apply(func, args, global)
-        },
+        &ast::Expression::Call(ref f, ref a) => eval_call(f, a, local, global),
         &ast::Expression::Access(ref a) => access_get(a, local, global),
         // TODO: get rid of clone
         &ast::Expression::Literal(ref l) => l.clone()
     }
 }
 
-fn eval_statement(statement: &ast::Statement, local: Value, global: Value) -> Value {
+fn eval_statement(statement: &ast::Statement, local: Object, global: Object) -> Value {
     match statement {
         &ast::Statement::Expression(ref e) => eval_expression(e, local, global).clone(),
         &ast::Statement::Declaration(ref d) => match d {
@@ -228,7 +284,7 @@ fn eval_statement(statement: &ast::Statement, local: Value, global: Value) -> Va
     }
 }
 
-pub fn eval(program: &ast::Block, local: Value, global: Value) -> Value {
+pub fn eval(program: &ast::Block, local: Object, global: Object) -> Value {
     let mut last = Value::Undefined;
 
     // inefficient but convenient to parse

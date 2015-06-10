@@ -82,6 +82,9 @@ expression_list -> ast::ExpressionList
 literal -> runtime::Value
     = n:number { runtime::Value::Number(n) }
     / f:function { runtime::Value::Function(runtime::Rc::new(f)) }
+    / s:string { runtime::Value::String(s) }
+    / "null" { runtime::Value::Object(runtime::Object::Null) }
+    / "undefined" { runtime::Value::Undefined }
 
 function -> runtime::Function
     = "function" __ i:identifier? __ "(" p:parameters ")" __ "{" b:block "}" {
@@ -111,3 +114,29 @@ frac
 
 frac_opt
     = frac? { () }
+
+string -> String
+    = "\"" s:(escape / [^"] { match_str.chars().next().unwrap() })+ "\"" {
+        let mut result = String::new();
+        for c in s {
+            result.push(c);
+        }
+        result
+    }
+
+escape -> char
+    = "\\" c:any_char {
+        match c {
+            'b' => '\x08',
+            'f' => '\x0c',
+            'n' => '\x0a',
+            'r' => '\x0d',
+            't' => '\x09',
+            'v' => '\x0b',
+            '0' => '\0',
+            _ => c
+        }
+    }
+
+any_char -> char
+    = . { match_str.chars().next().unwrap() }
