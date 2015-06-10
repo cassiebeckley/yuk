@@ -1,4 +1,4 @@
-use super::super::{ast, runtime};
+use super::super::{ast, interpret};
 
 #[pub]
 parse -> ast::Block
@@ -81,23 +81,23 @@ atomic_expression -> ast::Expression
 expression_list -> ast::ExpressionList
     = (__ e:expression __ {e}) ** ","
 
-literal -> runtime::Value
-    = n:number { runtime::Value::Number(n) }
-    / f:function_literal { runtime::Value::Function(f) }
-    / s:string { runtime::Value::String(s) }
-    / "null" { runtime::Value::Object(runtime::Object::Null) }
-    / "undefined" { runtime::Value::Undefined }
+literal -> interpret::Value
+    = n:number { interpret::Value::Number(n) }
+    / f:function_literal { interpret::Value::Function(f) }
+    / s:string { interpret::Value::String(s) }
+    / "null" { interpret::Value::Object(interpret::Object::Null) }
+    / "undefined" { interpret::Value::Undefined }
 
-function_literal -> runtime::Function
+function_literal -> interpret::Function
     = "function" __ i:identifier? __ "(" p:parameters ")" __ "{" b:block "}" {
-        runtime::Function::User {id: i, parameters: p, body: b, source: match_str.to_string()}
+        interpret::Function::User {id: i, parameters: p, body: b, source: match_str.to_string()}
     }
 
 function_declaration -> ast::Declaration
     = "function" __ i:identifier __ "(" p:parameters ")" __ "{" b:block "}" {
         ast::Declaration::Function(
             i.clone(),
-            runtime::Function::User {id: Some(i), parameters: p, body: b, source: match_str.to_string()}
+            interpret::Function::User {id: Some(i), parameters: p, body: b, source: match_str.to_string()}
         )
     }
 

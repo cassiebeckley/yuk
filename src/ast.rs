@@ -1,4 +1,4 @@
-pub use super::runtime::{Value, Function};
+pub use super::interpret::{Value, Function};
 
 pub type Block = Vec<Statement>;
 
