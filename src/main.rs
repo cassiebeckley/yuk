@@ -68,33 +68,18 @@ fn main() {
         io::stdout().flush().unwrap();
 
         let source = {
-            let mut total = String::new();
+            let mut source = String::new();
+            io::stdin().read_line(&mut source).unwrap();
 
-            // hacky, but it's just a temporary testing solution
-            let mut again = true;
-
-            while again {
-                again = false;
+            while !parser::is_complete(&source) {
+                print!("... ");
+                io::stdout().flush().unwrap();
                 let mut line = String::new();
                 io::stdin().read_line(&mut line).unwrap();
-
-                let mut s: Vec<char> = line.trim().chars().collect();
-                let last = s.pop();
-
-                match last {
-                    Some('\\') => again = true,
-                    Some(c) => s.push(c),
-                    None => ()
-                }
-
-                s.push('\n');
-
-                for c in s {
-                    total.push(c)
-                }
+                source = source + &line;
             }
 
-            total
+            source
         };
 
         let parsed = parser::parse(&source);

@@ -1,7 +1,8 @@
 mod grammar;
+mod complete;
 
-use super::ast;
+pub use self::grammar::parse;
 
-pub fn parse(source: &str) -> grammar::ParseResult<ast::Block> {
-    grammar::parse(source)
+pub fn is_complete(source: &str) -> bool {
+    complete::complete(source).is_ok()
 }
