@@ -23,7 +23,8 @@ pub enum Expression {
     Assignment(Access, Box<Expression>),
     Access(Access),
     Call(Box<Expression>, ExpressionList),
-    Literal(Value)
+    Literal(Value),
+    This
 }
 
 #[derive(Debug, Clone)]

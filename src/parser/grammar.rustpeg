@@ -74,7 +74,8 @@ called -> ast::ExpressionList
     = __ "(" __ el:expression_list __ ")" { el }
 
 atomic_expression -> ast::Expression
-    = v:literal { ast::Expression::Literal(v) }
+    = "this" { ast::Expression::This }
+    / v:literal { ast::Expression::Literal(v) }
     / i:identifier { ast::Expression::Access(ast::Access::Identifier(i)) }
     / "(" __ e:expression __ ")" { e }
 

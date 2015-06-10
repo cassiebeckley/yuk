@@ -276,7 +276,8 @@ fn eval_expression(expression: &ast::Expression, context: Context) -> JSResult {
         &ast::Expression::Call(ref f, ref a) => eval_call(f, a, context),
         &ast::Expression::Access(ref a) => access_get(a, context),
         // TODO: get rid of clone
-        &ast::Expression::Literal(ref l) => Ok(l.clone())
+        &ast::Expression::Literal(ref l) => Ok(l.clone()),
+        &ast::Expression::This => Ok(context.this)
     }
 }
 
