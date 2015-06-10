@@ -9,6 +9,13 @@ use super::ast;
 pub type JSResult = Result<Value, Value>;
 
 #[derive(Debug, Clone)]
+pub struct Context {
+    pub this: Value,
+    pub local: Object,
+    pub global: Object
+}
+
+#[derive(Debug, Clone)]
 pub struct PlainObject {
     values: HashMap<String, Value>,
     prototype: Object
@@ -147,7 +154,7 @@ impl Function {
                     try!(inner_env.set(parameter, argument.clone()));
                 }
 
-                try!(eval_block(b, inner_env.clone(), global));
+                try!(eval_block(b, Context {this: this, local: inner_env.clone(), global: global}));
 
                 Ok(Value::Undefined)
             }
@@ -219,93 +226,93 @@ pub fn apply(function: Value, this: Value, arguments: Vec<Value>, global: Object
     }
 }
 
-fn eval_call(function: &ast::Expression, arguments: &ast::ExpressionList, local: Object, global: Object) -> JSResult {
-    let func = try!(eval_expression(function, local.clone(), global.clone()));
-    let args = try!(eval_expression_list(arguments, local.clone(), global.clone()));
+fn eval_call(function: &ast::Expression, arguments: &ast::ExpressionList, context: Context) -> JSResult {
+    let func = try!(eval_expression(function, context.clone()));
+    let args = try!(eval_expression_list(arguments, context.clone()));
 
     let this = match function {
         &ast::Expression::Access(ref a) => match a {
             // TODO: This is probably bad -- p is evaluated **twice**, and therefore side effects happen twice
-            &ast::Access::Member(ref p, _) => try!(eval_expression(p, local, global.clone())),
-            _ => Value::Object(global.clone())
+            &ast::Access::Member(ref p, _) => try!(eval_expression(p, context.clone())),
+            _ => Value::Object(context.global.clone())
         },
-        _ => Value::Object(global.clone())
+        _ => Value::Object(context.global.clone())
     };
 
-    apply(func, this, args, global)
+    apply(func, this, args, context.global)
 }
 
-fn eval_expression_list(expressions: &Vec<ast::Expression>, local: Object, global: Object) -> Result<Vec<Value>, Value> {
+fn eval_expression_list(expressions: &Vec<ast::Expression>, context: Context) -> Result<Vec<Value>, Value> {
     let mut values = vec![];
 
     for e in expressions {
-        let val: Value = try!(eval_expression(e, local.clone(), global.clone()));
+        let val: Value = try!(eval_expression(e, context.clone()));
         values.push(val);
     }
 
     Ok(values)
 }
 
-fn access_get(access: &ast::Access, local: Object, global: Object) -> JSResult {
+fn access_get(access: &ast::Access, context: Context) -> JSResult {
     match access {
-        &ast::Access::Member(ref e, ref i) => try!(eval_expression(e, local, global.clone())).get(i, global),
-        &ast::Access::Identifier(ref i) => local.get(i)
+        &ast::Access::Member(ref e, ref i) => try!(eval_expression(e, context.clone())).get(i, context.global),
+        &ast::Access::Identifier(ref i) => context.local.get(i)
     }
 }
 
-fn access_set(access: &ast::Access, local: Object, global: Object, val: Value) -> JSResult {
+fn access_set(access: &ast::Access, context: Context, val: Value) -> JSResult {
     match access {
-        &ast::Access::Member(ref e, ref i) => try!(eval_expression(e, local, global)).set(i, val),
-        &ast::Access::Identifier(ref i) => local.outer_set(i, val)
+        &ast::Access::Member(ref e, ref i) => try!(eval_expression(e, context)).set(i, val),
+        &ast::Access::Identifier(ref i) => context.local.outer_set(i, val)
     }
 }
 
-fn eval_expression(expression: &ast::Expression, local: Object, global: Object) -> JSResult {
+fn eval_expression(expression: &ast::Expression, context: Context) -> JSResult {
     match expression {
         &ast::Expression::Assignment(ref lhs, ref rhs) => {
-            let rhs = try!(eval_expression(rhs, local.clone(), global.clone()));
-            access_set(lhs, local, global, rhs)
+            let rhs = try!(eval_expression(rhs, context.clone()));
+            access_set(lhs, context, rhs)
         },
-        &ast::Expression::Call(ref f, ref a) => eval_call(f, a, local, global),
-        &ast::Expression::Access(ref a) => access_get(a, local, global),
+        &ast::Expression::Call(ref f, ref a) => eval_call(f, a, context),
+        &ast::Expression::Access(ref a) => access_get(a, context),
         // TODO: get rid of clone
         &ast::Expression::Literal(ref l) => Ok(l.clone())
     }
 }
 
-fn eval_statement(statement: &ast::Statement, local: Object, global: Object) -> JSResult {
+fn eval_statement(statement: &ast::Statement, context: Context) -> JSResult {
     match statement {
-        &ast::Statement::Expression(ref e) => eval_expression(e, local, global),
+        &ast::Statement::Expression(ref e) => eval_expression(e, context),
         &ast::Statement::Declaration(ref d) => match d {
             &ast::Declaration::Variable(ref id, ref init) => {
                 if let &Some(ref expr) = init {
-                    try!(local.set(id, try!(eval_expression(expr, local.clone(), global.clone()))));
+                    try!(context.local.set(id, try!(eval_expression(expr, context.clone()))));
                 }
 
                 Ok(Value::Undefined)
             },
             _ => Ok(Value::Undefined)
         },
-        &ast::Statement::Throw(ref e) => Err(try!(eval_expression(e, local, global))),
+        &ast::Statement::Throw(ref e) => Err(try!(eval_expression(e, context))),
         &ast::Statement::Empty => Ok(Value::Undefined)
     }
 }
 
-pub fn eval_block(program: &ast::Block, local: Object, global: Object) -> JSResult {
+pub fn eval_block(program: &ast::Block, context: Context) -> JSResult {
     let mut last = Value::Undefined;
 
     // inefficient (I think) but convenient to parse
     for statement in program {
         if let &ast::Statement::Declaration(ref decl) = statement {
             match decl {
-                &ast::Declaration::Variable(ref id, _) => try!(local.set(id, Value::Undefined)),
-                &ast::Declaration::Function(ref id, ref f) => try!(local.set(id, Value::Function(f.clone())))
+                &ast::Declaration::Variable(ref id, _) => try!(context.local.set(id, Value::Undefined)),
+                &ast::Declaration::Function(ref id, ref f) => try!(context.local.set(id, Value::Function(f.clone())))
             };
         }
     }
 
     for statement in program {
-        last = try!(eval_statement(statement, local.clone(), global.clone()));
+        last = try!(eval_statement(statement, context.clone()));
     }
 
     Ok(last)

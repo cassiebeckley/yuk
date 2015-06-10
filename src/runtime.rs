@@ -3,14 +3,17 @@ use super::parser;
 use super::interpret;
 use super::interpret::JSResult;
 
-/// A high-level interface for the interpreter
-pub struct Ack {
-    global: interpret::Object
-}
+pub type Ack = interpret::Context;
 
+/// A high-level interface for the interpreter
 impl Ack {
     pub fn new() -> Ack {
-        Ack {global: create_stdlib()}
+        let obj = create_stdlib();
+        Ack {
+            this: interpret::Value::Object(obj.clone()),
+            local: obj.clone(),
+            global: obj.clone()
+        }
     }
 
     pub fn eval(&mut self, source: &str) -> JSResult {
@@ -20,7 +23,7 @@ impl Ack {
         // println!("AST: {:?}", parsed);
 
         match parsed {
-            Ok(ast) => interpret::eval_block(&ast, self.global.clone(), self.global.clone()),
+            Ok(ast) => interpret::eval_block(&ast, self.clone()),
             Err(e) => interpret::throw_string(format!("SyntaxError: {:?}", e))
         }
     }
