@@ -1,5 +1,6 @@
 extern crate ack;
 extern crate libc;
+extern crate term;
 
 use std::{io, env, fs};
 use std::io::Write;
@@ -45,7 +46,18 @@ fn run_script<T: io::Read>(mut file: T) -> bool {
         s
     };
 
-    Ack::new().eval(&source).is_ok()
+    let result = Ack::new().eval(&source);
+
+    if let &Err(ref e) = &result {
+        let mut t = term::stderr().unwrap();
+
+        t.fg(term::color::BRIGHT_RED).unwrap();
+        writeln!(t, "{}", e.debug_string()).unwrap();
+
+        t.reset().unwrap();
+    }
+
+    result.is_ok()
 }
 
 fn main() {

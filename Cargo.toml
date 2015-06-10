@@ -6,3 +6,4 @@ authors = ["David Beckley <beckl.ds@gmail.com>"]
 [dependencies]
 maplit = "0.1.1"
 libc = "0.1"
+term = "0.2"
