@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::{fmt, iter};
+use std::{fmt, iter, f64};
 
 pub use std::rc::Rc;
 pub use std::cell::RefCell;
@@ -42,7 +42,6 @@ impl Function {
         match self {
             &Function::Native(ref f) => f(this, arguments, global),
             &Function::User (UserFunction {id: _, parameters: ref p, body: ref b, source: _}) => {
-                // TODO: add this binding
                 let inner_env = Object::Object(Rc::new(RefCell::new(ActualObject::create(global.clone()))));
                 let undef = Value::Undefined;
                 for (argument, parameter) in arguments.iter().chain(iter::repeat(&undef)).zip(p) {
@@ -231,21 +230,21 @@ impl Value {
             &Value::Number(_) => try!(try!(global.clone().get("Number")).get("prototype", global.clone())).get(key, global),
             &Value::String(_) => try!(try!(global.clone().get("String")).get("prototype", global.clone())).get(key, global),
             &Value::Object(ref obj) => obj.get(key),
-            _ => throw_string(format!("{:?} is not an object (TODO: treat functions as objects)", self))
+            _ => throw_string(format!("{:?} is not an object", self))
         }
     }
 
     pub fn set(&self, key: &str, val: Value) -> JSResult {
         match self {
             &Value::Object(ref obj) => obj.set(key, val),
-            _ => throw_string(format!("{:?} is not an object (TODO: treat functions as objects)", self))
+            _ => throw_string(format!("{:?} is not an object", self))
         }
     }
 
     pub fn outer_set(&self, key: &str, val: Value) -> JSResult {
         match self {
             &Value::Object(ref obj) => obj.outer_set(key, val),
-            _ => throw_string(format!("{:?} is not an object (TODO: treat functions as objects)", self))
+            _ => throw_string(format!("{:?} is not an object", self))
         }
     }
 
@@ -266,6 +265,16 @@ impl Value {
         match self {
             &Value::Object(Object::Object(ref o)) => o.borrow().apply(this, arguments, global),
             _ => throw_string(format!("{:?} is not a function", self))
+        }
+    }
+
+    // Conversions
+    pub fn to_number(&self) -> f64 {
+        match self {
+            &Value::Number(n) => n,
+            &Value::String(ref s) => s.parse().unwrap_or(f64::NAN),
+            &Value::Object(_) => f64::NAN,
+            &Value::Undefined => f64::NAN
         }
     }
 }
@@ -316,6 +325,15 @@ fn access_set(access: &ast::Access, context: Context, val: Value) -> JSResult {
     }
 }
 
+fn eval_unary(op: &ast::UnaryOp, exp: &ast::Expression, context: Context) -> JSResult {
+    let val = try!(eval_expression(exp, context));
+
+    match op {
+        &ast::UnaryOp::Negative => Ok(Value::Number(-val.to_number())),
+        &ast::UnaryOp::Positive => Ok(Value::Number(val.to_number()))
+    }
+}
+
 fn eval_expression(expression: &ast::Expression, context: Context) -> JSResult {
     match expression {
         &ast::Expression::Assignment(ref lhs, ref rhs) => {
@@ -324,8 +342,6 @@ fn eval_expression(expression: &ast::Expression, context: Context) -> JSResult {
         },
         &ast::Expression::Call(ref f, ref a) => eval_call(f, a, context),
         &ast::Expression::Access(ref a) => access_get(a, context),
-        // TODO: get rid of clone
-        // ^ wait, why?
         &ast::Expression::Literal(ref l) => Ok(l.clone()),
         &ast::Expression::Function(ref uf) => {
             let fp = match try!(try!(context.global.get("Function")).get("prototype", context.global)) {
@@ -334,6 +350,7 @@ fn eval_expression(expression: &ast::Expression, context: Context) -> JSResult {
             };
             Ok(Value::from_function(Function::User(uf.clone()), fp))
         },
+        &ast::Expression::Unary(ref u, ref e) => eval_unary(u, e, context),
         &ast::Expression::This => Ok(context.this)
     }
 }

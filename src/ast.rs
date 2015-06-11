@@ -19,12 +19,19 @@ pub enum Declaration {
 }
 
 #[derive(Debug, Clone)]
+pub enum UnaryOp {
+    Negative,
+    Positive
+}
+
+#[derive(Debug, Clone)]
 pub enum Expression {
     Assignment(Access, Box<Expression>),
     Access(Access),
     Call(Box<Expression>, ExpressionList),
     Literal(Value),
     Function(UserFunction),
+    Unary(UnaryOp, Box<Expression>),
     This
 }
 

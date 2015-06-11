@@ -33,6 +33,11 @@ expression -> ast::Expression
     / lhs:access __ "=" __ rhs:expression { ast::Expression::Assignment(lhs, Box::new(rhs)) }
     / method_call
     / atomic_expression
+    / op:unary_op __ exp:expression { ast::Expression::Unary(op, Box::new(exp)) }
+
+unary_op -> ast::UnaryOp
+    = "-" { ast::UnaryOp::Negative }
+    / "+" { ast::UnaryOp::Positive }
 
 method_call -> ast::Expression
     = f:access calls:called* {
