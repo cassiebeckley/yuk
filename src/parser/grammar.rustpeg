@@ -29,6 +29,7 @@ declaration -> ast::Declaration
 
 expression -> ast::Expression
     = v:literal { ast::Expression::Literal(v) }
+    / f:function_literal { ast::Expression::Function(f) }
     / lhs:access __ "=" __ rhs:expression { ast::Expression::Assignment(lhs, Box::new(rhs)) }
     / method_call
     / atomic_expression
@@ -84,21 +85,20 @@ expression_list -> ast::ExpressionList
 
 literal -> interpret::Value
     = n:number { interpret::Value::Number(n) }
-    / f:function_literal { interpret::Value::Function(f) }
     / s:string { interpret::Value::String(s) }
     / "null" { interpret::Value::Object(interpret::Object::Null) }
     / "undefined" { interpret::Value::Undefined }
 
-function_literal -> interpret::Function
+function_literal -> interpret::UserFunction
     = "function" __ i:identifier? __ "(" p:parameters ")" __ "{" b:block "}" {
-        interpret::Function::User {id: i, parameters: p, body: b, source: match_str.to_string()}
+        interpret::UserFunction {id: i, parameters: p, body: b, source: match_str.to_string()}
     }
 
 function_declaration -> ast::Declaration
     = "function" __ i:identifier __ "(" p:parameters ")" __ "{" b:block "}" {
         ast::Declaration::Function(
             i.clone(),
-            interpret::Function::User {id: Some(i), parameters: p, body: b, source: match_str.to_string()}
+            interpret::UserFunction {id: Some(i), parameters: p, body: b, source: match_str.to_string()}
         )
     }
 

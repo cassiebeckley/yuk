@@ -16,128 +16,23 @@ pub struct Context {
 }
 
 #[derive(Debug, Clone)]
-pub struct PlainObject {
-    values: HashMap<String, Value>,
-    prototype: Object
+pub struct UserFunction {
+    pub id: Option<ast::Identifier>,
+    pub parameters: Vec<String>,
+    pub body: ast::Block,
+    pub source: String
 }
 
-impl PlainObject {
-    pub fn new() -> PlainObject {
-        PlainObject {
-            values: HashMap::new(),
-            prototype: Object::Null
-        }
-    }
-
-    pub fn create(proto: Object) -> PlainObject {
-        let proto = proto.clone();
-
-        PlainObject {
-            values: HashMap::new(),
-            prototype: proto
-        }
-    }
-
-    pub fn from_map(map: HashMap<String, Value>) -> PlainObject {
-        PlainObject {
-            values: map,
-            prototype: Object::Null
-        }
-    }
-
-    fn outer_set(&mut self, key: &str, val: Value) -> Value {
-        let key = key.to_string();
-        if self.values.contains_key(&key) {
-            self.values.insert(key, val.clone());
-        } else if let Object::Plain(ref proto) = self.prototype {
-            proto.borrow_mut().outer_set(&key, val.clone());
-        } else {
-            self.values.insert(key, val.clone());
-        }
-
-        val
-    }
-
-    fn get(&self, key: &str) -> Value {
-        match self.values.get(&key.to_string()) {
-            Some(v) => v.clone(),
-            None => match self.prototype {
-                Object::Plain(ref proto) => proto.borrow().get(key),
-                Object::Null => Value::Undefined
-            }
-        }
-    }
-
-    fn set(&mut self, key: &str, val: Value) -> Value {
-        self.values.insert(key.to_string(), val.clone());
-        val
-    }
-
-    fn debug_string(&self) -> String {
-        let middle: String = self.values.iter()
-            .map(|(key, value)| "\"".to_string() + key + "\": " + &value.debug_string())
-            .fold("".to_string(), |result, next| if result.len() > 0 {result + ", " + &next} else {next});
-
-        "{".to_string() + &middle + "}"
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum Object {
-    Plain(Rc<RefCell<PlainObject>>),
-    Null
-}
-
-impl Object {
-    pub fn from_map(obj: HashMap<String, Value>) -> Object {
-        Object::Plain(Rc::new(RefCell::new(PlainObject::from_map(obj))))
-    }
-
-    fn outer_set(&self, key: &str, val: Value) -> JSResult {
-        match self {
-            &Object::Plain(ref obj) => Ok(obj.borrow_mut().outer_set(key, val)),
-            &Object::Null => throw_string("null has no properties".to_string())
-        }
-    }
-
-    pub fn get(&self, key: &str) -> JSResult {
-        match self {
-            &Object::Plain(ref obj) => Ok(obj.borrow().get(key)),
-            &Object::Null => throw_string("null has no properties".to_string())
-        }
-    }
-
-    pub fn set(&self, key: &str, val: Value) -> JSResult {
-        match self {
-            &Object::Plain(ref obj) => Ok(obj.borrow_mut().set(key, val)),
-            &Object::Null => throw_string("null has no properties".to_string())
-        }
-    }
-
-    fn debug_string(&self) -> String {
-        match self {
-            &Object::Plain(ref o) => o.borrow().debug_string(),
-            &Object::Null => "null".to_string()
-        }
-    }
-}
-
-#[derive(Clone)]
 pub enum Function {
-    Native(Rc<fn(Value, Vec<Value>, Object) -> JSResult>),
-    User {id: Option<ast::Identifier>, parameters: Vec<String>, body: ast::Block, source: String}
+    Native(fn(Value, Vec<Value>, Object) -> JSResult),
+    User(UserFunction)
 }
 
 impl fmt::Debug for Function {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match self {
             &Function::Native(_) => fmt.write_str("Native([native code])"),
-            &Function::User {
-                id: ref i,
-                parameters: ref p,
-                body: ref b,
-                source: _
-            } => fmt.write_fmt(format_args!("User {{ id: {:?}, parameters: {:?}, body: {:?} }}", i, p, b))
+            &Function::User (ref u) => u.fmt(fmt)
         }
     }
 }
@@ -146,9 +41,9 @@ impl Function {
     fn apply(&self, this: Value, arguments: Vec<Value>, global: Object) -> JSResult {
         match self {
             &Function::Native(ref f) => f(this, arguments, global),
-            &Function::User {id: _, parameters: ref p, body: ref b, source: _} => {
+            &Function::User (UserFunction {id: _, parameters: ref p, body: ref b, source: _}) => {
                 // TODO: add this binding
-                let inner_env = Object::Plain(Rc::new(RefCell::new(PlainObject::create(global.clone()))));
+                let inner_env = Object::Object(Rc::new(RefCell::new(ActualObject::create(global.clone()))));
                 let undef = Value::Undefined;
                 for (argument, parameter) in arguments.iter().chain(iter::repeat(&undef)).zip(p) {
                     try!(inner_env.set(parameter, argument.clone()));
@@ -164,8 +59,160 @@ impl Function {
     fn debug_string(&self) -> String {
         match self {
             &Function::Native(_) => "function() {\n    [native code]\n}".to_string(),
-            &Function::User {id: Some(ref id), parameters: _, body: _, source: _} => format!("function {}()", id),
-            &Function::User {id: None, parameters: _, body: _, source: _} => "function()".to_string(),
+            &Function::User(UserFunction {id: Some(ref id), parameters: _, body: _, source: _}) => format!("function {}()", id),
+            &Function::User(UserFunction {id: None, parameters: _, body: _, source: _}) => "function()".to_string(),
+        }
+    }
+
+    pub fn to_string(&self) -> String {
+        match self {
+            &Function::Native(_) => "function() {\n    [native code]\n}".to_string(),
+            &Function::User(UserFunction {id: _, parameters: _, body: _, source: ref s}) => s.to_string()
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ObjectExtension {
+    Function(Function),
+    None
+}
+
+#[derive(Debug)]
+pub struct ActualObject {
+    pub values: HashMap<String, Value>,
+    pub prototype: Object,
+    pub otype: ObjectExtension
+}
+
+impl ActualObject {
+    pub fn new() -> ActualObject {
+        ActualObject {
+            values: HashMap::new(),
+            prototype: Object::Null,
+            otype: ObjectExtension::None
+        }
+    }
+
+    pub fn create(proto: Object) -> ActualObject {
+        let proto = proto.clone();
+
+        ActualObject {
+            values: HashMap::new(),
+            prototype: proto,
+            otype: ObjectExtension::None
+        }
+    }
+
+    pub fn from_map(map: HashMap<String, Value>) -> ActualObject {
+        ActualObject {
+            values: map,
+            prototype: Object::Null,
+            otype: ObjectExtension::None
+        }
+    }
+
+    fn outer_set(&mut self, key: &str, val: Value) -> Value {
+        let key = key.to_string();
+        if self.values.contains_key(&key) {
+            self.values.insert(key, val.clone());
+        } else if let Object::Object(ref proto) = self.prototype {
+            proto.borrow_mut().outer_set(&key, val.clone());
+        } else {
+            self.values.insert(key, val.clone());
+        }
+
+        val
+    }
+
+    fn get(&self, key: &str) -> Value {
+        match self.values.get(&key.to_string()) {
+            Some(v) => v.clone(),
+            None => match self.prototype {
+                Object::Object(ref proto) => proto.borrow().get(key),
+                Object::Null => Value::Undefined
+            }
+        }
+    }
+
+    fn set(&mut self, key: &str, val: Value) -> Value {
+        self.values.insert(key.to_string(), val.clone());
+        val
+    }
+
+    fn debug_string(&self) -> String {
+        match &self.otype {
+            &ObjectExtension::Function(ref f) => f.debug_string(),
+            &ObjectExtension::None => {
+                let middle: String = self.values.iter()
+                .map(|(key, value)| "\"".to_string() + key + "\": " + &value.debug_string())
+                .fold("".to_string(), |result, next| if result.len() > 0 {result + ", " + &next} else {next});
+
+                "{".to_string() + &middle + "}"
+            }
+        }
+    }
+
+    fn from_function(func: Function, prototype: Object) -> ActualObject {
+        ActualObject {
+            values: HashMap::new(),
+            prototype: prototype,
+            otype: ObjectExtension::Function(func)
+        }
+    }
+
+    pub fn apply(&self, this: Value, arguments: Vec<Value>, global: Object) -> JSResult {
+        match &self.otype {
+            &ObjectExtension::Function(ref f) => f.apply(this, arguments, global),
+            _ => throw_string(format!("{:?} is not a function", self))
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Object {
+    Object(Rc<RefCell<ActualObject>>),
+    Null
+}
+
+impl Object {
+    pub fn new() -> Object {
+        Object::Object(Rc::new(RefCell::new(ActualObject::new())))
+    }
+
+    pub fn from_map(obj: HashMap<String, Value>) -> Object {
+        Object::Object(Rc::new(RefCell::new(ActualObject::from_map(obj))))
+    }
+
+    pub fn from_function(func: Function, prototype: Object) -> Object {
+        Object::Object(Rc::new(RefCell::new(ActualObject::from_function(func, prototype))))
+    }
+
+    fn outer_set(&self, key: &str, val: Value) -> JSResult {
+        match self {
+            &Object::Object(ref obj) => Ok(obj.borrow_mut().outer_set(key, val)),
+            &Object::Null => throw_string("null has no properties".to_string())
+        }
+    }
+
+    pub fn get(&self, key: &str) -> JSResult {
+        match self {
+            &Object::Object(ref obj) => Ok(obj.borrow().get(key)),
+            &Object::Null => throw_string("null has no properties".to_string())
+        }
+    }
+
+    pub fn set(&self, key: &str, val: Value) -> JSResult {
+        match self {
+            &Object::Object(ref obj) => Ok(obj.borrow_mut().set(key, val)),
+            &Object::Null => throw_string("null has no properties".to_string())
+        }
+    }
+
+    fn debug_string(&self) -> String {
+        match self {
+            &Object::Object(ref o) => o.borrow().debug_string(),
+            &Object::Null => "null".to_string()
         }
     }
 }
@@ -174,7 +221,6 @@ impl Function {
 pub enum Value {
     Number(f64),
     String(String),
-    Function(Function),
     Object(Object),
     Undefined
 }
@@ -207,9 +253,19 @@ impl Value {
         match self {
             &Value::Number(n) => n.to_string(),
             &Value::String(ref s) => s.to_string(),
-            &Value::Function(ref f) => f.debug_string(),
             &Value::Object(ref o) => o.debug_string(),
             &Value::Undefined => "undefined".to_string(),
+        }
+    }
+
+    pub fn from_function(func: Function, prototype: Object) -> Value {
+        Value::Object(Object::from_function(func, prototype))
+    }
+
+    pub fn apply(&self, this: Value, arguments: Vec<Value>, global: Object) -> JSResult {
+        match self {
+            &Value::Object(Object::Object(ref o)) => o.borrow().apply(this, arguments, global),
+            _ => throw_string(format!("{:?} is not a function", self))
         }
     }
 }
@@ -217,13 +273,6 @@ impl Value {
 // TODO: Use proper exceptions, rather than strings
 pub fn throw_string<T>(err: String) -> Result<T, Value> {
     Err(Value::String(err))
-}
-
-pub fn apply(function: Value, this: Value, arguments: Vec<Value>, global: Object) -> JSResult {
-    match &function {
-        &Value::Function(ref f) => f.apply(this, arguments, global),
-        _ => throw_string(format!("{:?} is not a function", function))
-    }
 }
 
 fn eval_call(function: &ast::Expression, arguments: &ast::ExpressionList, context: Context) -> JSResult {
@@ -239,7 +288,7 @@ fn eval_call(function: &ast::Expression, arguments: &ast::ExpressionList, contex
         _ => Value::Object(context.global.clone())
     };
 
-    apply(func, this, args, context.global)
+    func.apply(this, args, context.global)
 }
 
 fn eval_expression_list(expressions: &Vec<ast::Expression>, context: Context) -> Result<Vec<Value>, Value> {
@@ -276,7 +325,15 @@ fn eval_expression(expression: &ast::Expression, context: Context) -> JSResult {
         &ast::Expression::Call(ref f, ref a) => eval_call(f, a, context),
         &ast::Expression::Access(ref a) => access_get(a, context),
         // TODO: get rid of clone
+        // ^ wait, why?
         &ast::Expression::Literal(ref l) => Ok(l.clone()),
+        &ast::Expression::Function(ref uf) => {
+            let fp = match try!(try!(context.global.get("Function")).get("prototype", context.global)) {
+                Value::Object(o) => o,
+                _ => try!(throw_string("Function.prototype must be an obect".to_string()))
+            };
+            Ok(Value::from_function(Function::User(uf.clone()), fp))
+        },
         &ast::Expression::This => Ok(context.this)
     }
 }
@@ -302,12 +359,18 @@ fn eval_statement(statement: &ast::Statement, context: Context) -> JSResult {
 pub fn eval_block(program: &ast::Block, context: Context) -> JSResult {
     let mut last = Value::Undefined;
 
+    // TODO: impl JSResult::get(&self, &str)
+    let function_prototype = match try!(try!(context.global.get("Function")).get("prototype", context.global.clone())) {
+        Value::Object(o) => o,
+        _ => return throw_string("Function.prototype must be an object".to_string())
+    };
+
     // inefficient (I think) but convenient to parse
     for statement in program {
         if let &ast::Statement::Declaration(ref decl) = statement {
             match decl {
                 &ast::Declaration::Variable(ref id, _) => try!(context.local.set(id, Value::Undefined)),
-                &ast::Declaration::Function(ref id, ref f) => try!(context.local.set(id, Value::Function(f.clone())))
+                &ast::Declaration::Function(ref id, ref f) => try!(context.local.set(id, Value::from_function(Function::User(f.clone()), function_prototype.clone())))
             };
         }
     }
@@ -323,7 +386,7 @@ pub fn eval_block(program: &ast::Block, context: Context) -> JSResult {
 // mod tests {
 //     use super::*;
 
-//     // test PlainObject
+//     // test ActualObject
 //     #[test]
 //     fn test_something(){}
 // }

@@ -3,6 +3,8 @@ use super::parser;
 use super::interpret;
 use super::interpret::JSResult;
 
+use std::ops::Deref;
+
 pub type Ack = interpret::Context;
 
 /// A high-level interface for the interpreter
@@ -33,19 +35,25 @@ impl Ack {
 pub fn create_stdlib() -> interpret::Object {
     use interpret::*;
 
+    let function_prototype = Object::new();
+    function_prototype.set("toString", Value::from_function(Function::Native(function_prototype_to_string), function_prototype.clone())).unwrap();
+
     Object::from_map(hashmap!{
         "console".to_string() => Value::Object(Object::from_map(hashmap!{
-            "log".to_string() => Value::Function(Function::Native(Rc::new(console_log)))
+            "log".to_string() => Value::from_function(Function::Native(console_log), function_prototype.clone())
         })),
         "Number".to_string() => Value::Object(Object::from_map(hashmap!{
             "prototype".to_string() => Value::Object(Object::from_map(hashmap!{
-                "toString".to_string() => Value::Function(Function::Native(Rc::new(number_prototype_to_string)))
+                "toString".to_string() => Value::from_function(Function::Native(number_prototype_to_string), function_prototype.clone())
             }))
         })),
         "String".to_string() => Value::Object(Object::from_map(hashmap!{
             "prototype".to_string() => Value::Object(Object::from_map(hashmap!{
-                "toString".to_string() => Value::Function(Function::Native(Rc::new(string_prototype_to_string)))
+                "toString".to_string() => Value::from_function(Function::Native(string_prototype_to_string), function_prototype.clone())
             }))
+        })),
+        "Function".to_string() => Value::Object(Object::from_map(hashmap!{
+            "prototype".to_string() => Value::Object(function_prototype)
         })),
     })
 }
@@ -70,5 +78,15 @@ fn string_prototype_to_string(this: interpret::Value, _: Vec<interpret::Value>, 
     match this {
         interpret::Value::String(s) => Ok(interpret::Value::String(s.to_string())),
         _ => interpret::throw_string(format!("{:?} is not a string!", this))
+    }
+}
+
+fn function_prototype_to_string(this: interpret::Value, _: Vec<interpret::Value>, _: interpret::Object) -> interpret::JSResult {
+    match this {
+        interpret::Value::Object(interpret::Object::Object(ref o)) => match o.borrow().deref() {
+            &interpret::ActualObject {values: _, prototype: _, otype: interpret::ObjectExtension::Function(ref f)} => Ok(interpret::Value::String(f.to_string())),
+            _ => interpret::throw_string(format!("{:?} is not a function!", this))
+        },
+        _ => interpret::throw_string(format!("{:?} is not a function!", this))
     }
 }

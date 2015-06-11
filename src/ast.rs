@@ -1,4 +1,4 @@
-pub use super::interpret::{Value, Function};
+pub use super::interpret::{Value, UserFunction};
 
 pub type Block = Vec<Statement>;
 
@@ -15,7 +15,7 @@ pub enum Statement {
 #[derive(Debug, Clone)]
 pub enum Declaration {
     Variable(Identifier, Option<Expression>),
-    Function(Identifier, Function)
+    Function(Identifier, UserFunction)
 }
 
 #[derive(Debug, Clone)]
@@ -24,6 +24,7 @@ pub enum Expression {
     Access(Access),
     Call(Box<Expression>, ExpressionList),
     Literal(Value),
+    Function(UserFunction),
     This
 }
 

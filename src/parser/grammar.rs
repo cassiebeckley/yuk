@@ -583,68 +583,17 @@ fn parse_expression<'input>(input: &'input str, state: &mut ParseState,
                     {
                         let start_pos = pos;
                         {
-                            let seq_res = parse_access(input, state, pos);
+                            let seq_res =
+                                parse_function_literal(input, state, pos);
                             match seq_res {
-                                Matched(pos, lhs) => {
+                                Matched(pos, f) => {
                                     {
-                                        let seq_res =
-                                            parse___(input, state, pos);
-                                        match seq_res {
-                                            Matched(pos, _) => {
+                                        let match_str =
+                                            &input[start_pos..pos];
+                                        Matched(pos,
                                                 {
-                                                    let seq_res =
-                                                        slice_eq(input, state,
-                                                                 pos, "=");
-                                                    match seq_res {
-                                                        Matched(pos, _) => {
-                                                            {
-                                                                let seq_res =
-                                                                    parse___(input,
-                                                                             state,
-                                                                             pos);
-                                                                match seq_res
-                                                                    {
-                                                                    Matched(pos,
-                                                                            _)
-                                                                    => {
-                                                                        {
-                                                                            let seq_res =
-                                                                                parse_expression(input,
-                                                                                                 state,
-                                                                                                 pos);
-                                                                            match seq_res
-                                                                                {
-                                                                                Matched(pos,
-                                                                                        rhs)
-                                                                                =>
-                                                                                {
-                                                                                    {
-                                                                                        let match_str =
-                                                                                            &input[start_pos..pos];
-                                                                                        Matched(pos,
-                                                                                                {
-                                                                                                    ast::Expression::Assignment(lhs,
-                                                                                                                                Box::new(rhs))
-                                                                                                })
-                                                                                    }
-                                                                                }
-                                                                                Failed
-                                                                                =>
-                                                                                Failed,
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                    Failed =>
-                                                                    Failed,
-                                                                }
-                                                            }
-                                                        }
-                                                        Failed => Failed,
-                                                    }
-                                                }
-                                            }
-                                            Failed => Failed,
-                                        }
+                                                    ast::Expression::Function(f)
+                                                })
                                     }
                                 }
                                 Failed => Failed,
@@ -654,11 +603,100 @@ fn parse_expression<'input>(input: &'input str, state: &mut ParseState,
                 match choice_res {
                     Matched(pos, value) => Matched(pos, value),
                     Failed => {
-                        let choice_res = parse_method_call(input, state, pos);
+                        let choice_res =
+                            {
+                                let start_pos = pos;
+                                {
+                                    let seq_res =
+                                        parse_access(input, state, pos);
+                                    match seq_res {
+                                        Matched(pos, lhs) => {
+                                            {
+                                                let seq_res =
+                                                    parse___(input, state,
+                                                             pos);
+                                                match seq_res {
+                                                    Matched(pos, _) => {
+                                                        {
+                                                            let seq_res =
+                                                                slice_eq(input,
+                                                                         state,
+                                                                         pos,
+                                                                         "=");
+                                                            match seq_res {
+                                                                Matched(pos,
+                                                                        _) =>
+                                                                {
+                                                                    {
+                                                                        let seq_res =
+                                                                            parse___(input,
+                                                                                     state,
+                                                                                     pos);
+                                                                        match seq_res
+                                                                            {
+                                                                            Matched(pos,
+                                                                                    _)
+                                                                            =>
+                                                                            {
+                                                                                {
+                                                                                    let seq_res =
+                                                                                        parse_expression(input,
+                                                                                                         state,
+                                                                                                         pos);
+                                                                                    match seq_res
+                                                                                        {
+                                                                                        Matched(pos,
+                                                                                                rhs)
+                                                                                        =>
+                                                                                        {
+                                                                                            {
+                                                                                                let match_str =
+                                                                                                    &input[start_pos..pos];
+                                                                                                Matched(pos,
+                                                                                                        {
+                                                                                                            ast::Expression::Assignment(lhs,
+                                                                                                                                        Box::new(rhs))
+                                                                                                        })
+                                                                                            }
+                                                                                        }
+                                                                                        Failed
+                                                                                        =>
+                                                                                        Failed,
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                            Failed
+                                                                            =>
+                                                                            Failed,
+                                                                        }
+                                                                    }
+                                                                }
+                                                                Failed =>
+                                                                Failed,
+                                                            }
+                                                        }
+                                                    }
+                                                    Failed => Failed,
+                                                }
+                                            }
+                                        }
+                                        Failed => Failed,
+                                    }
+                                }
+                            };
                         match choice_res {
                             Matched(pos, value) => Matched(pos, value),
-                            Failed =>
-                            parse_atomic_expression(input, state, pos),
+                            Failed => {
+                                let choice_res =
+                                    parse_method_call(input, state, pos);
+                                match choice_res {
+                                    Matched(pos, value) =>
+                                    Matched(pos, value),
+                                    Failed =>
+                                    parse_atomic_expression(input, state,
+                                                            pos),
+                                }
+                            }
                         }
                     }
                 }
@@ -1235,16 +1273,15 @@ fn parse_literal<'input>(input: &'input str, state: &mut ParseState,
                     {
                         let start_pos = pos;
                         {
-                            let seq_res =
-                                parse_function_literal(input, state, pos);
+                            let seq_res = parse_string(input, state, pos);
                             match seq_res {
-                                Matched(pos, f) => {
+                                Matched(pos, s) => {
                                     {
                                         let match_str =
                                             &input[start_pos..pos];
                                         Matched(pos,
                                                 {
-                                                    interpret::Value::Function(f)
+                                                    interpret::Value::String(s)
                                                 })
                                     }
                                 }
@@ -1260,15 +1297,15 @@ fn parse_literal<'input>(input: &'input str, state: &mut ParseState,
                                 let start_pos = pos;
                                 {
                                     let seq_res =
-                                        parse_string(input, state, pos);
+                                        slice_eq(input, state, pos, "null");
                                     match seq_res {
-                                        Matched(pos, s) => {
+                                        Matched(pos, _) => {
                                             {
                                                 let match_str =
                                                     &input[start_pos..pos];
                                                 Matched(pos,
                                                         {
-                                                            interpret::Value::String(s)
+                                                            interpret::Value::Object(interpret::Object::Null)
                                                         })
                                             }
                                         }
@@ -1279,51 +1316,23 @@ fn parse_literal<'input>(input: &'input str, state: &mut ParseState,
                         match choice_res {
                             Matched(pos, value) => Matched(pos, value),
                             Failed => {
-                                let choice_res =
-                                    {
-                                        let start_pos = pos;
-                                        {
-                                            let seq_res =
-                                                slice_eq(input, state, pos,
-                                                         "null");
-                                            match seq_res {
-                                                Matched(pos, _) => {
-                                                    {
-                                                        let match_str =
-                                                            &input[start_pos..pos];
-                                                        Matched(pos,
-                                                                {
-                                                                    interpret::Value::Object(interpret::Object::Null)
-                                                                })
-                                                    }
-                                                }
-                                                Failed => Failed,
+                                let start_pos = pos;
+                                {
+                                    let seq_res =
+                                        slice_eq(input, state, pos,
+                                                 "undefined");
+                                    match seq_res {
+                                        Matched(pos, _) => {
+                                            {
+                                                let match_str =
+                                                    &input[start_pos..pos];
+                                                Matched(pos,
+                                                        {
+                                                            interpret::Value::Undefined
+                                                        })
                                             }
                                         }
-                                    };
-                                match choice_res {
-                                    Matched(pos, value) =>
-                                    Matched(pos, value),
-                                    Failed => {
-                                        let start_pos = pos;
-                                        {
-                                            let seq_res =
-                                                slice_eq(input, state, pos,
-                                                         "undefined");
-                                            match seq_res {
-                                                Matched(pos, _) => {
-                                                    {
-                                                        let match_str =
-                                                            &input[start_pos..pos];
-                                                        Matched(pos,
-                                                                {
-                                                                    interpret::Value::Undefined
-                                                                })
-                                                    }
-                                                }
-                                                Failed => Failed,
-                                            }
-                                        }
+                                        Failed => Failed,
                                     }
                                 }
                             }
@@ -1336,7 +1345,7 @@ fn parse_literal<'input>(input: &'input str, state: &mut ParseState,
 }
 fn parse_function_literal<'input>(input: &'input str, state: &mut ParseState,
                                   pos: usize)
- -> RuleResult<interpret::Function> {
+ -> RuleResult<interpret::UserFunction> {
     {
         let start_pos = pos;
         {
@@ -1448,14 +1457,14 @@ fn parse_function_literal<'input>(input: &'input str, state: &mut ParseState,
                                                                                                                                                     &input[start_pos..pos];
                                                                                                                                                 Matched(pos,
                                                                                                                                                         {
-                                                                                                                                                            interpret::Function::User{id:
-                                                                                                                                                                                          i,
-                                                                                                                                                                                      parameters:
-                                                                                                                                                                                          p,
-                                                                                                                                                                                      body:
-                                                                                                                                                                                          b,
-                                                                                                                                                                                      source:
-                                                                                                                                                                                          match_str.to_string(),}
+                                                                                                                                                            interpret::UserFunction{id:
+                                                                                                                                                                                        i,
+                                                                                                                                                                                    parameters:
+                                                                                                                                                                                        p,
+                                                                                                                                                                                    body:
+                                                                                                                                                                                        b,
+                                                                                                                                                                                    source:
+                                                                                                                                                                                        match_str.to_string(),}
                                                                                                                                                         })
                                                                                                                                             }
                                                                                                                                         }
@@ -1626,14 +1635,14 @@ fn parse_function_declaration<'input>(input: &'input str,
                                                                                                                                                 Matched(pos,
                                                                                                                                                         {
                                                                                                                                                             ast::Declaration::Function(i.clone(),
-                                                                                                                                                                                       interpret::Function::User{id:
-                                                                                                                                                                                                                     Some(i),
-                                                                                                                                                                                                                 parameters:
-                                                                                                                                                                                                                     p,
-                                                                                                                                                                                                                 body:
-                                                                                                                                                                                                                     b,
-                                                                                                                                                                                                                 source:
-                                                                                                                                                                                                                     match_str.to_string(),})
+                                                                                                                                                                                       interpret::UserFunction{id:
+                                                                                                                                                                                                                   Some(i),
+                                                                                                                                                                                                               parameters:
+                                                                                                                                                                                                                   p,
+                                                                                                                                                                                                               body:
+                                                                                                                                                                                                                   b,
+                                                                                                                                                                                                               source:
+                                                                                                                                                                                                                   match_str.to_string(),})
                                                                                                                                                         })
                                                                                                                                             }
                                                                                                                                         }
