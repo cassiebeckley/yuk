@@ -134,6 +134,16 @@ impl ActualObject {
         }
     }
 
+    fn get_or_err(&self, key: &str) -> JSResult {
+        match self.values.get(&key.to_string()) {
+            Some(v) => Ok(v.clone()),
+            None => match self.prototype {
+                Object::Object(ref proto) => Ok(proto.borrow().get(key)),
+                Object::Null => throw_string(format!("{} is not defined", key))
+            }
+        }
+    }
+
     fn set(&mut self, key: &str, val: Value) -> Value {
         self.values.insert(key.to_string(), val.clone());
         val
@@ -197,6 +207,13 @@ impl Object {
     pub fn get(&self, key: &str) -> JSResult {
         match self {
             &Object::Object(ref obj) => Ok(obj.borrow().get(key)),
+            &Object::Null => throw_string("null has no properties".to_string())
+        }
+    }
+
+    pub fn get_or_err(&self, key: &str) -> JSResult {
+        match self {
+            &Object::Object(ref obj) => obj.borrow().get_or_err(key),
             &Object::Null => throw_string("null has no properties".to_string())
         }
     }
@@ -314,7 +331,7 @@ fn eval_expression_list(expressions: &Vec<ast::Expression>, context: Context) ->
 fn access_get(access: &ast::Access, context: Context) -> JSResult {
     match access {
         &ast::Access::Member(ref e, ref i) => try!(eval_expression(e, context.clone())).get(i, context.global),
-        &ast::Access::Identifier(ref i) => context.local.get(i)
+        &ast::Access::Identifier(ref i) => context.local.get_or_err(i)
     }
 }
 
