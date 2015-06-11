@@ -34,7 +34,24 @@ fn start_repl() {
             source
         };
 
-        println!("Result: {:?}", ack.eval(&source));
+        match ack.eval(&source) {
+            Ok(result) => {
+                let mut t = term::stdout().unwrap();
+
+                t.fg(term::color::BRIGHT_BLUE).unwrap();
+                writeln!(t, "{}", result.debug_string()).unwrap();
+
+                t.reset().unwrap();
+            },
+            Err(e) => {
+                let mut t = term::stderr().unwrap();
+
+                t.fg(term::color::BRIGHT_RED).unwrap();
+                writeln!(t, "{}", e.debug_string()).unwrap();
+
+                t.reset().unwrap();
+            }
+        }
     }
 }
 
