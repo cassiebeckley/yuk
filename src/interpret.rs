@@ -8,6 +8,19 @@ use super::ast;
 
 pub type JSResult = Result<Value, Value>;
 
+trait GetFromResult {
+    fn get(self, key: &str, global: Object) -> JSResult;
+}
+
+impl GetFromResult for JSResult {
+    fn get(self, key: &str, global: Object) -> JSResult {
+        match self {
+            Ok(ref value) => value.get(key, global),
+            Err(_) => self.clone()
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Context {
     pub this: Value,
@@ -244,8 +257,8 @@ pub enum Value {
 impl Value {
     pub fn get(&self, key: &str, global: Object) -> JSResult {
         match self {
-            &Value::Number(_) => try!(try!(global.clone().get("Number")).get("prototype", global.clone())).get(key, global),
-            &Value::String(_) => try!(try!(global.clone().get("String")).get("prototype", global.clone())).get(key, global),
+            &Value::Number(_) => global.clone().get("Number").get("prototype", global.clone()).get(key, global),
+            &Value::String(_) => global.clone().get("String").get("prototype", global.clone()).get(key, global),
             &Value::Object(ref obj) => obj.get(key),
             _ => throw_string(format!("{:?} is not an object", self))
         }
@@ -407,8 +420,7 @@ fn eval_statement(statement: &ast::Statement, context: Context) -> JSResult {
 pub fn eval_block(program: &ast::Block, context: Context) -> JSResult {
     let mut last = Value::Undefined;
 
-    // TODO: impl JSResult::get(&self, &str)
-    let function_prototype = match try!(try!(context.global.get("Function")).get("prototype", context.global.clone())) {
+    let function_prototype = match try!(context.global.get("Function").get("prototype", context.global.clone())) {
         Value::Object(o) => o,
         _ => return throw_string("Function.prototype must be an object".to_string())
     };
