@@ -28,7 +28,11 @@ declaration -> ast::Declaration
     / function_declaration
 
 expression -> ast::Expression
-    = l:simple_expression __ op:binary_op __ r:simple_expression { ast::Expression::Binary(op, Box::new(l), Box::new(r)) }
+    = l:product __ op:sum_op __ r:product { ast::Expression::Binary(op, Box::new(l), Box::new(r)) }
+    / product
+
+product -> ast::Expression
+    = l:simple_expression __ op:product_op __ r:simple_expression { ast::Expression::Binary(op, Box::new(l), Box::new(r)) }
     / simple_expression
 
 simple_expression -> ast::Expression
@@ -40,12 +44,16 @@ simple_expression -> ast::Expression
     / op:unary_op __ exp:expression { ast::Expression::Unary(op, Box::new(exp)) }
 
 unary_op -> ast::UnaryOp
-    = "-" { ast::UnaryOp::Negative }
-    / "+" { ast::UnaryOp::Positive }
+    = "+" { ast::UnaryOp::Positive }
+    / "-" { ast::UnaryOp::Negative }
 
-binary_op -> ast::BinaryOp
-    = "-" { ast::BinaryOp::Minus }
-    / "+" { ast::BinaryOp::Plus }
+sum_op -> ast::BinaryOp
+    = "+" { ast::BinaryOp::Add }
+    / "-" { ast::BinaryOp::Subtract }
+
+product_op -> ast::BinaryOp
+    = "*" { ast::BinaryOp::Multiply }
+    / "/" { ast::BinaryOp::Divide }
 
 method_call -> ast::Expression
     = f:access calls:called* {

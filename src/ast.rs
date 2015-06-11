@@ -20,14 +20,16 @@ pub enum Declaration {
 
 #[derive(Debug, Clone)]
 pub enum UnaryOp {
-    Negative,
-    Positive
+    Positive,
+    Negative
 }
 
 #[derive(Debug, Clone)]
 pub enum BinaryOp {
-    Minus,
-    Plus
+    Add,
+    Subtract,
+    Multiply,
+    Divide
 }
 
 #[derive(Debug, Clone)]

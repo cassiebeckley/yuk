@@ -564,6 +564,83 @@ fn parse_expression<'input>(input: &'input str, state: &mut ParseState,
             {
                 let start_pos = pos;
                 {
+                    let seq_res = parse_product(input, state, pos);
+                    match seq_res {
+                        Matched(pos, l) => {
+                            {
+                                let seq_res = parse___(input, state, pos);
+                                match seq_res {
+                                    Matched(pos, _) => {
+                                        {
+                                            let seq_res =
+                                                parse_sum_op(input, state,
+                                                             pos);
+                                            match seq_res {
+                                                Matched(pos, op) => {
+                                                    {
+                                                        let seq_res =
+                                                            parse___(input,
+                                                                     state,
+                                                                     pos);
+                                                        match seq_res {
+                                                            Matched(pos, _) =>
+                                                            {
+                                                                {
+                                                                    let seq_res =
+                                                                        parse_product(input,
+                                                                                      state,
+                                                                                      pos);
+                                                                    match seq_res
+                                                                        {
+                                                                        Matched(pos,
+                                                                                r)
+                                                                        => {
+                                                                            {
+                                                                                let match_str =
+                                                                                    &input[start_pos..pos];
+                                                                                Matched(pos,
+                                                                                        {
+                                                                                            ast::Expression::Binary(op,
+                                                                                                                    Box::new(l),
+                                                                                                                    Box::new(r))
+                                                                                        })
+                                                                            }
+                                                                        }
+                                                                        Failed
+                                                                        =>
+                                                                        Failed,
+                                                                    }
+                                                                }
+                                                            }
+                                                            Failed => Failed,
+                                                        }
+                                                    }
+                                                }
+                                                Failed => Failed,
+                                            }
+                                        }
+                                    }
+                                    Failed => Failed,
+                                }
+                            }
+                        }
+                        Failed => Failed,
+                    }
+                }
+            };
+        match choice_res {
+            Matched(pos, value) => Matched(pos, value),
+            Failed => parse_product(input, state, pos),
+        }
+    }
+}
+fn parse_product<'input>(input: &'input str, state: &mut ParseState,
+                         pos: usize) -> RuleResult<ast::Expression> {
+    {
+        let choice_res =
+            {
+                let start_pos = pos;
+                {
                     let seq_res = parse_simple_expression(input, state, pos);
                     match seq_res {
                         Matched(pos, l) => {
@@ -573,8 +650,8 @@ fn parse_expression<'input>(input: &'input str, state: &mut ParseState,
                                     Matched(pos, _) => {
                                         {
                                             let seq_res =
-                                                parse_binary_op(input, state,
-                                                                pos);
+                                                parse_product_op(input, state,
+                                                                 pos);
                                             match seq_res {
                                                 Matched(pos, op) => {
                                                     {
@@ -851,23 +928,6 @@ fn parse_unary_op<'input>(input: &'input str, state: &mut ParseState,
             {
                 let start_pos = pos;
                 {
-                    let seq_res = slice_eq(input, state, pos, "-");
-                    match seq_res {
-                        Matched(pos, _) => {
-                            {
-                                let match_str = &input[start_pos..pos];
-                                Matched(pos, { ast::UnaryOp::Negative })
-                            }
-                        }
-                        Failed => Failed,
-                    }
-                }
-            };
-        match choice_res {
-            Matched(pos, value) => Matched(pos, value),
-            Failed => {
-                let start_pos = pos;
-                {
                     let seq_res = slice_eq(input, state, pos, "+");
                     match seq_res {
                         Matched(pos, _) => {
@@ -879,15 +939,10 @@ fn parse_unary_op<'input>(input: &'input str, state: &mut ParseState,
                         Failed => Failed,
                     }
                 }
-            }
-        }
-    }
-}
-fn parse_binary_op<'input>(input: &'input str, state: &mut ParseState,
-                           pos: usize) -> RuleResult<ast::BinaryOp> {
-    {
-        let choice_res =
-            {
+            };
+        match choice_res {
+            Matched(pos, value) => Matched(pos, value),
+            Failed => {
                 let start_pos = pos;
                 {
                     let seq_res = slice_eq(input, state, pos, "-");
@@ -895,7 +950,29 @@ fn parse_binary_op<'input>(input: &'input str, state: &mut ParseState,
                         Matched(pos, _) => {
                             {
                                 let match_str = &input[start_pos..pos];
-                                Matched(pos, { ast::BinaryOp::Minus })
+                                Matched(pos, { ast::UnaryOp::Negative })
+                            }
+                        }
+                        Failed => Failed,
+                    }
+                }
+            }
+        }
+    }
+}
+fn parse_sum_op<'input>(input: &'input str, state: &mut ParseState,
+                        pos: usize) -> RuleResult<ast::BinaryOp> {
+    {
+        let choice_res =
+            {
+                let start_pos = pos;
+                {
+                    let seq_res = slice_eq(input, state, pos, "+");
+                    match seq_res {
+                        Matched(pos, _) => {
+                            {
+                                let match_str = &input[start_pos..pos];
+                                Matched(pos, { ast::BinaryOp::Add })
                             }
                         }
                         Failed => Failed,
@@ -907,12 +984,51 @@ fn parse_binary_op<'input>(input: &'input str, state: &mut ParseState,
             Failed => {
                 let start_pos = pos;
                 {
-                    let seq_res = slice_eq(input, state, pos, "+");
+                    let seq_res = slice_eq(input, state, pos, "-");
                     match seq_res {
                         Matched(pos, _) => {
                             {
                                 let match_str = &input[start_pos..pos];
-                                Matched(pos, { ast::BinaryOp::Plus })
+                                Matched(pos, { ast::BinaryOp::Subtract })
+                            }
+                        }
+                        Failed => Failed,
+                    }
+                }
+            }
+        }
+    }
+}
+fn parse_product_op<'input>(input: &'input str, state: &mut ParseState,
+                            pos: usize) -> RuleResult<ast::BinaryOp> {
+    {
+        let choice_res =
+            {
+                let start_pos = pos;
+                {
+                    let seq_res = slice_eq(input, state, pos, "*");
+                    match seq_res {
+                        Matched(pos, _) => {
+                            {
+                                let match_str = &input[start_pos..pos];
+                                Matched(pos, { ast::BinaryOp::Multiply })
+                            }
+                        }
+                        Failed => Failed,
+                    }
+                }
+            };
+        match choice_res {
+            Matched(pos, value) => Matched(pos, value),
+            Failed => {
+                let start_pos = pos;
+                {
+                    let seq_res = slice_eq(input, state, pos, "/");
+                    match seq_res {
+                        Matched(pos, _) => {
+                            {
+                                let match_str = &input[start_pos..pos];
+                                Matched(pos, { ast::BinaryOp::Divide })
                             }
                         }
                         Failed => Failed,

@@ -339,8 +339,11 @@ fn eval_binary(op: &ast::BinaryOp, left: &ast::Expression, right: &ast::Expressi
     let right = try!(eval_expression(right, context));
 
     match op {
-        &ast::BinaryOp::Minus => Ok(Value::Number(left.to_number() - right.to_number())),
-        &ast::BinaryOp::Plus => Ok(Value::Number(left.to_number() + right.to_number()))
+        &ast::BinaryOp::Add => Ok(Value::Number(left.to_number() + right.to_number())),
+        &ast::BinaryOp::Subtract => Ok(Value::Number(left.to_number() - right.to_number())),
+
+        &ast::BinaryOp::Multiply => Ok(Value::Number(left.to_number() * right.to_number())),
+        &ast::BinaryOp::Divide => Ok(Value::Number(left.to_number() / right.to_number()))
     }
 }
 
