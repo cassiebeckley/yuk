@@ -307,6 +307,15 @@ impl Value {
             &Value::Undefined => f64::NAN
         }
     }
+
+    pub fn to_string(&self) -> String {
+        match self {
+            &Value::Number(_) => String::new(),
+            &Value::String(ref s) => s.clone(),
+            &Value::Object(_) => String::new(),
+            &Value::Undefined => String::new()
+        }
+    }
 }
 
 // TODO: Use proper exceptions, rather than strings
@@ -364,12 +373,31 @@ fn eval_unary(op: &ast::UnaryOp, exp: &ast::Expression, context: Context) -> JSR
     }
 }
 
+fn eval_add(left: Value, right: Value, global: Object) -> JSResult {
+    match (left.clone(), right.clone()) {
+        (Value::Number(left), Value::Number(right)) => Ok(Value::Number(left + right)),
+        _ => {
+            let left_string = try!(try!(left.get("toString", global.clone())
+                .or(throw_string(format!("can't convert {} to primitive type", left.debug_string()))))
+                .apply(left.clone(), vec![], global.clone())
+                .or(throw_string(format!("can't convert {} to primitive type", left.debug_string())))).to_string();
+
+            let right_string = try!(try!(right.get("toString", global.clone())
+                .or(throw_string(format!("can't convert {} to primitive type", right.debug_string()))))
+                .apply(right.clone(), vec![], global)
+                .or(throw_string(format!("can't convert {} to primitive type", right.debug_string())))).to_string();
+
+            Ok(Value::String(left_string + &right_string))
+        }
+    }
+}
+
 fn eval_binary(op: &ast::BinaryOp, left: &ast::Expression, right: &ast::Expression, context: Context) -> JSResult {
     let left = try!(eval_expression(left, context.clone()));
-    let right = try!(eval_expression(right, context));
+    let right = try!(eval_expression(right, context.clone()));
 
     match op {
-        &ast::BinaryOp::Add => Ok(Value::Number(left.to_number() + right.to_number())),
+        &ast::BinaryOp::Add => eval_add(left, right, context.global),
         &ast::BinaryOp::Subtract => Ok(Value::Number(left.to_number() - right.to_number())),
 
         &ast::BinaryOp::Multiply => Ok(Value::Number(left.to_number() * right.to_number())),
@@ -446,7 +474,16 @@ pub fn eval_block(program: &ast::Block, context: Context) -> JSResult {
 // mod tests {
 //     use super::*;
 
-//     // test ActualObject
 //     #[test]
-//     fn test_something(){}
+//     fn test_eval_add() {
+//         let cases = vec![
+//             (Value::Number(12.4), Value::Number(27.6), Value::Number(40)),
+//             (Value::String("hello".to_string()), Value::Number(5), Value::String("hello5".to_string())),
+//             (Value::Number(27), Value::String("yup"), Value::String("27yup".to_string())),
+//         ];
+
+//         for (left, right, total) in cases {
+//             assert_eq!(total, eval_add(left, right, Object::new()))
+//         }
+//     }
 // }
