@@ -25,6 +25,12 @@ pub enum UnaryOp {
 }
 
 #[derive(Debug, Clone)]
+pub enum BinaryOp {
+    Minus,
+    Plus
+}
+
+#[derive(Debug, Clone)]
 pub enum Expression {
     Assignment(Access, Box<Expression>),
     Access(Access),
@@ -32,6 +38,7 @@ pub enum Expression {
     Literal(Value),
     Function(UserFunction),
     Unary(UnaryOp, Box<Expression>),
+    Binary(BinaryOp, Box<Expression>, Box<Expression>),
     This
 }
 

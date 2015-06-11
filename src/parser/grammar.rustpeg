@@ -28,6 +28,10 @@ declaration -> ast::Declaration
     / function_declaration
 
 expression -> ast::Expression
+    = l:simple_expression __ op:binary_op __ r:simple_expression { ast::Expression::Binary(op, Box::new(l), Box::new(r)) }
+    / simple_expression
+
+simple_expression -> ast::Expression
     = v:literal { ast::Expression::Literal(v) }
     / f:function_literal { ast::Expression::Function(f) }
     / lhs:access __ "=" __ rhs:expression { ast::Expression::Assignment(lhs, Box::new(rhs)) }
@@ -38,6 +42,10 @@ expression -> ast::Expression
 unary_op -> ast::UnaryOp
     = "-" { ast::UnaryOp::Negative }
     / "+" { ast::UnaryOp::Positive }
+
+binary_op -> ast::BinaryOp
+    = "-" { ast::BinaryOp::Minus }
+    / "+" { ast::BinaryOp::Plus }
 
 method_call -> ast::Expression
     = f:access calls:called* {

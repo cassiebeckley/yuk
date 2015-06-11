@@ -334,6 +334,16 @@ fn eval_unary(op: &ast::UnaryOp, exp: &ast::Expression, context: Context) -> JSR
     }
 }
 
+fn eval_binary(op: &ast::BinaryOp, left: &ast::Expression, right: &ast::Expression, context: Context) -> JSResult {
+    let left = try!(eval_expression(left, context.clone()));
+    let right = try!(eval_expression(right, context));
+
+    match op {
+        &ast::BinaryOp::Minus => Ok(Value::Number(left.to_number() - right.to_number())),
+        &ast::BinaryOp::Plus => Ok(Value::Number(left.to_number() + right.to_number()))
+    }
+}
+
 fn eval_expression(expression: &ast::Expression, context: Context) -> JSResult {
     match expression {
         &ast::Expression::Assignment(ref lhs, ref rhs) => {
@@ -351,6 +361,7 @@ fn eval_expression(expression: &ast::Expression, context: Context) -> JSResult {
             Ok(Value::from_function(Function::User(uf.clone()), fp))
         },
         &ast::Expression::Unary(ref u, ref e) => eval_unary(u, e, context),
+        &ast::Expression::Binary(ref b, ref l, ref r) => eval_binary(b, l, r, context),
         &ast::Expression::This => Ok(context.this)
     }
 }
