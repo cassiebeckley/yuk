@@ -28,12 +28,26 @@ declaration -> ast::Declaration
     / function_declaration
 
 expression -> ast::Expression
-    = l:product __ op:sum_op __ r:product { ast::Expression::Binary(op, Box::new(l), Box::new(r)) }
-    / product
+    = l:product s:(__ op:sum_op __ r:product { (op, r) })* {
+        let mut expr = l;
+
+        for (op, right) in s {
+            expr = ast::Expression::Binary(op, Box::new(expr), Box::new(right))
+        }
+
+        expr
+    }
 
 product -> ast::Expression
-    = l:simple_expression __ op:product_op __ r:simple_expression { ast::Expression::Binary(op, Box::new(l), Box::new(r)) }
-    / simple_expression
+    = l:simple_expression s:(__ op:product_op __ r:simple_expression { (op, r) })* {
+        let mut expr = l;
+
+        for (op, right) in s {
+            expr = ast::Expression::Binary(op, Box::new(expr), Box::new(right));
+        }
+
+        expr
+    }
 
 simple_expression -> ast::Expression
     = v:literal { ast::Expression::Literal(v) }
