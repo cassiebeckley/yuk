@@ -170,6 +170,13 @@ string -> String
         }
         result
     }
+    / "'" s:(escape / [^'] { match_str.chars().next().unwrap() })+ "'" {
+        let mut result = String::new();
+        for c in s {
+            result.push(c);
+        }
+        result
+    }
 
 escape -> char
     = "\\" c:any_char {
