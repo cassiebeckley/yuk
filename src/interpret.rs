@@ -37,8 +37,8 @@ pub struct UserFunction {
 }
 
 pub enum Function {
-    Native(fn(Value, Vec<Value>, Object) -> JSResult),
-    User(UserFunction)
+    Native(fn(Vec<Value>, Context) -> JSResult),
+    User(UserFunction),
 }
 
 impl fmt::Debug for Function {
@@ -51,17 +51,17 @@ impl fmt::Debug for Function {
 }
 
 impl Function {
-    fn apply(&self, this: Value, arguments: Vec<Value>, global: Object) -> JSResult {
+    fn apply(&self, arguments: Vec<Value>, context: Context) -> JSResult {
         match self {
-            &Function::Native(ref f) => f(this, arguments, global),
+            &Function::Native(ref f) => f(arguments, context),
             &Function::User (UserFunction {id: _, parameters: ref p, body: ref b, source: _}) => {
-                let inner_env = Object::Object(Rc::new(RefCell::new(ActualObject::create(global.clone()))));
+                let inner_env = Object::Object(Rc::new(RefCell::new(ActualObject::create(context.global.clone()))));
                 let undef = Value::Undefined;
                 for (argument, parameter) in arguments.iter().chain(iter::repeat(&undef)).zip(p) {
                     try!(inner_env.set(parameter, argument.clone()));
                 }
 
-                try!(eval_block(b, Context {this: this, local: inner_env.clone(), global: global}));
+                try!(eval_block(b, Context {this: context.this, local: inner_env.clone(), global: context.global}));
 
                 Ok(Value::Undefined)
             }
@@ -183,9 +183,9 @@ impl ActualObject {
         }
     }
 
-    pub fn apply(&self, this: Value, arguments: Vec<Value>, global: Object) -> JSResult {
+    pub fn apply(&self, arguments: Vec<Value>, context: Context) -> JSResult {
         match &self.otype {
-            &ObjectExtension::Function(ref f) => f.apply(this, arguments, global),
+            &ObjectExtension::Function(ref f) => f.apply(arguments, context),
             _ => throw_string(format!("{:?} is not a function", self))
         }
     }
@@ -291,9 +291,9 @@ impl Value {
         Value::Object(Object::from_function(func, prototype))
     }
 
-    pub fn apply(&self, this: Value, arguments: Vec<Value>, global: Object) -> JSResult {
+    pub fn apply(&self, arguments: Vec<Value>, context: Context) -> JSResult {
         match self {
-            &Value::Object(Object::Object(ref o)) => o.borrow().apply(this, arguments, global),
+            &Value::Object(Object::Object(ref o)) => o.borrow().apply(arguments, context),
             _ => throw_string(format!("{:?} is not a function", self))
         }
     }
@@ -323,11 +323,11 @@ pub fn throw_string<T>(err: String) -> Result<T, Value> {
     Err(Value::String(err))
 }
 
-fn eval_call(function: &ast::Expression, arguments: &ast::ExpressionList, context: Context) -> JSResult {
+fn eval_call(function: &ast::Expression, arguments: &ast::ExpressionList, mut context: Context) -> JSResult {
     let func = try!(eval_expression(function, context.clone()));
     let args = try!(eval_expression_list(arguments, context.clone()));
 
-    let this = match function {
+    context.this = match function {
         &ast::Expression::Access(ref a) => match a {
             // TODO: This is probably bad -- p is evaluated **twice**, and therefore side effects happen twice
             &ast::Access::Member(ref p, _) => try!(eval_expression(p, context.clone())),
@@ -336,7 +336,7 @@ fn eval_call(function: &ast::Expression, arguments: &ast::ExpressionList, contex
         _ => Value::Object(context.global.clone())
     };
 
-    func.apply(this, args, context.global)
+    func.apply(args, context)
 }
 
 fn eval_expression_list(expressions: &Vec<ast::Expression>, context: Context) -> Result<Vec<Value>, Value> {
@@ -379,12 +379,12 @@ fn eval_add(left: Value, right: Value, global: Object) -> JSResult {
         _ => {
             let left_string = try!(try!(left.get("toString", global.clone())
                 .or(throw_string(format!("can't convert {} to primitive type", left.debug_string()))))
-                .apply(left.clone(), vec![], global.clone())
+                .apply(vec![], Context {this: left.clone(), local: global.clone(), global: global.clone()})
                 .or(throw_string(format!("can't convert {} to primitive type", left.debug_string())))).to_string();
 
             let right_string = try!(try!(right.get("toString", global.clone())
                 .or(throw_string(format!("can't convert {} to primitive type", right.debug_string()))))
-                .apply(right.clone(), vec![], global)
+                .apply(vec![], Context {this: right.clone(), local: global.clone(), global: global.clone()})
                 .or(throw_string(format!("can't convert {} to primitive type", right.debug_string())))).to_string();
 
             Ok(Value::String(left_string + &right_string))

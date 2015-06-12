@@ -1,7 +1,7 @@
 use super::parser;
 
 use super::interpret;
-use super::interpret::JSResult;
+use super::interpret::{JSResult, Context};
 
 use std::ops::Deref;
 
@@ -52,13 +52,14 @@ pub fn create_stdlib() -> interpret::Object {
                 "toString".to_string() => Value::from_function(Function::Native(string_prototype_to_string), function_prototype.clone())
             }))
         })),
+        "eval".to_string() => Value::from_function(Function::Native(js_eval), function_prototype.clone()),
         "Function".to_string() => Value::Object(Object::from_map(hashmap!{
             "prototype".to_string() => Value::Object(function_prototype)
         })),
     })
 }
 
-fn console_log(_: interpret::Value, arguments: Vec<interpret::Value>, _: interpret::Object) -> interpret::JSResult {
+fn console_log(arguments: Vec<interpret::Value>, _: Context) -> interpret::JSResult {
     for value in arguments {
         print!("{} ", value.debug_string());
     }
@@ -67,26 +68,38 @@ fn console_log(_: interpret::Value, arguments: Vec<interpret::Value>, _: interpr
     Ok(interpret::Value::Undefined)
 }
 
-fn number_prototype_to_string(this: interpret::Value, _: Vec<interpret::Value>, _: interpret::Object) -> interpret::JSResult {
-    match this {
+fn number_prototype_to_string(_: Vec<interpret::Value>, context: Context) -> interpret::JSResult {
+    match context.this {
         interpret::Value::Number(n) => Ok(interpret::Value::String(n.to_string())),
-        _ => interpret::throw_string(format!("{:?} is not a number!", this))
+        _ => interpret::throw_string(format!("{:?} is not a number!", context.this))
     }
 }
 
-fn string_prototype_to_string(this: interpret::Value, _: Vec<interpret::Value>, _: interpret::Object) -> interpret::JSResult {
-    match this {
+fn string_prototype_to_string(_: Vec<interpret::Value>, context: Context) -> interpret::JSResult {
+    match context.this {
         interpret::Value::String(s) => Ok(interpret::Value::String(s.to_string())),
-        _ => interpret::throw_string(format!("{:?} is not a string!", this))
+        _ => interpret::throw_string(format!("{:?} is not a string!", context.this))
     }
 }
 
-fn function_prototype_to_string(this: interpret::Value, _: Vec<interpret::Value>, _: interpret::Object) -> interpret::JSResult {
-    match this {
+fn function_prototype_to_string(_: Vec<interpret::Value>, context: Context) -> interpret::JSResult {
+    match context.this {
         interpret::Value::Object(interpret::Object::Object(ref o)) => match o.borrow().deref() {
             &interpret::ActualObject {values: _, prototype: _, otype: interpret::ObjectExtension::Function(ref f)} => Ok(interpret::Value::String(f.to_string())),
-            _ => interpret::throw_string(format!("{:?} is not a function!", this))
+            _ => interpret::throw_string(format!("{:?} is not a function!", context.this))
         },
-        _ => interpret::throw_string(format!("{:?} is not a function!", this))
+        _ => interpret::throw_string(format!("{:?} is not a function!", context.this))
+    }
+}
+
+fn js_eval(arguments: Vec<interpret::Value>, context: Context) -> interpret::JSResult {
+    match arguments.get(0) {
+        Some(&interpret::Value::String(ref arg)) => {
+            match parser::parse(&arg.clone()) {
+                Ok(ast) => interpret::eval_block(&ast, context),
+                Err(e) => Err(interpret::Value::String(format!("{}", e)))
+            }
+        },
+        _ => Ok(interpret::Value::Undefined)
     }
 }
