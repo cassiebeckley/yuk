@@ -3,6 +3,10 @@ name = "ack"
 version = "0.1.0"
 authors = ["David Beckley <beckl.ds@gmail.com>"]
 
+[[bin]]
+name = "ack"
+doc = false
+
 [dependencies]
 maplit = "0.1.1"
 libc = "0.1"

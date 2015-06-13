@@ -13,7 +13,7 @@ fn is_interactive() -> bool {
 }
 
 fn start_repl() {
-    let mut ack = Ack::new();
+    let mut ack = Ack::create_stdlib();
 
     loop {
         print!(">>> ");
@@ -63,7 +63,7 @@ fn run_script<T: io::Read>(mut file: T) -> bool {
         s
     };
 
-    let result = Ack::new().eval(&source);
+    let result = Ack::create_stdlib().eval(&source);
 
     if let &Err(ref e) = &result {
         let mut t = term::stderr().unwrap();

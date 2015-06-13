@@ -21,11 +21,25 @@ impl GetFromResult for JSResult {
     }
 }
 
+/// Contains the state for an interpreter thread
 #[derive(Debug, Clone)]
 pub struct Context {
     pub this: Value,
     pub local: Object,
     pub global: Object
+}
+
+impl Context {
+    /// Creates a top-level context
+    ///
+    /// `this`, `local`, and `global` are all set to `obj`.
+    pub fn new(obj: Object) -> Context {
+        Context {
+            this: Value::Object(obj.clone()),
+            local: obj.clone(),
+            global: obj
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

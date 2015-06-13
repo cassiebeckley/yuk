@@ -1,3 +1,5 @@
+//! Embeddable JavaScript interpreter.
+
 #[macro_use]
 extern crate maplit;
 

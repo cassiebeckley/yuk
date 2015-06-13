@@ -9,15 +9,12 @@ pub type Ack = interpret::Context;
 
 /// A high-level interface for the interpreter
 impl Ack {
-    pub fn new() -> Ack {
-        let obj = create_stdlib();
-        Ack {
-            this: interpret::Value::Object(obj.clone()),
-            local: obj.clone(),
-            global: obj.clone()
-        }
+    /// Create a context with the JavaScript standard library
+    pub fn create_stdlib() -> Ack {
+        Context::new(create_stdlib())
     }
 
+    /// Parse and evaluate `source` in this context
     pub fn eval(&mut self, source: &str) -> JSResult {
         let parsed = parser::parse(source);
 
@@ -31,8 +28,8 @@ impl Ack {
     }
 }
 
-/// Create a default global object
-pub fn create_stdlib() -> interpret::Object {
+/// This is private, anyway
+fn create_stdlib() -> interpret::Object {
     use interpret::*;
 
     let function_prototype = Object::new();
