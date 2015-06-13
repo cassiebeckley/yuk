@@ -966,9 +966,9 @@ fn parse_simple_expression<'input>(input: &'input str, state: &mut ParseState,
                                                                     => {
                                                                         {
                                                                             let seq_res =
-                                                                                parse_expression(input,
-                                                                                                 state,
-                                                                                                 pos);
+                                                                                parse_simple_expression(input,
+                                                                                                        state,
+                                                                                                        pos);
                                                                             match seq_res
                                                                                 {
                                                                                 Matched(pos,

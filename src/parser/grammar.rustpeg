@@ -55,7 +55,7 @@ simple_expression -> ast::Expression
     / lhs:access __ "=" __ rhs:expression { ast::Expression::Assignment(lhs, Box::new(rhs)) }
     / method_call
     / atomic_expression
-    / op:unary_op __ exp:expression { ast::Expression::Unary(op, Box::new(exp)) }
+    / op:unary_op __ exp:simple_expression { ast::Expression::Unary(op, Box::new(exp)) }
 
 unary_op -> ast::UnaryOp
     = "+" { ast::UnaryOp::Positive }
