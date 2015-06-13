@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use std::{fmt, iter, f64};
+use std::{fmt, iter, f64, cmp};
+use std::ops::Deref;
 
 pub use std::rc::Rc;
 pub use std::cell::RefCell;
@@ -260,7 +261,21 @@ impl Object {
     }
 }
 
-#[derive(Debug,Clone)]
+impl cmp::PartialEq for Object {
+    fn eq(&self, other: &Object) -> bool {
+        match (self, other) {
+            (&Object::Object(ref a_rc), &Object::Object(ref b_rc)) => {
+                let a: *const RefCell<ActualObject> = a_rc.deref();
+                let b: *const RefCell<ActualObject> = b_rc.deref();
+                a == b
+            },
+            (&Object::Null, &Object::Null) => true,
+            _ => false
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Number(f64),
     String(String),
@@ -310,6 +325,29 @@ impl Value {
             &Value::Object(Object::Object(ref o)) => o.borrow().apply(arguments, context),
             _ => throw_string(format!("{:?} is not a function", self))
         }
+    }
+
+    fn add(&self, right: &Value, global: Object) -> JSResult {
+        match (self.clone(), right.clone()) {
+            (Value::Number(left), Value::Number(right)) => Ok(Value::Number(left + right)),
+            _ => {
+                let left_string = try!(try!(self.get("toString", global.clone())
+                    .or(throw_string(format!("can't convert {} to primitive type", self.debug_string()))))
+                    .apply(vec![], Context {this: self.clone(), local: global.clone(), global: global.clone()})
+                    .or(throw_string(format!("can't convert {} to primitive type", self.debug_string())))).to_string();
+
+                let right_string = try!(try!(right.get("toString", global.clone())
+                    .or(throw_string(format!("can't convert {} to primitive type", right.debug_string()))))
+                    .apply(vec![], Context {this: right.clone(), local: global.clone(), global: global.clone()})
+                    .or(throw_string(format!("can't convert {} to primitive type", right.debug_string())))).to_string();
+
+                Ok(Value::String(left_string + &right_string))
+            }
+        }
+    }
+
+    pub fn strict_equals(&self, right: &Value) -> bool {
+        self == right
     }
 
     // Conversions
@@ -387,31 +425,12 @@ fn eval_unary(op: &ast::UnaryOp, exp: &ast::Expression, context: Context) -> JSR
     }
 }
 
-fn eval_add(left: Value, right: Value, global: Object) -> JSResult {
-    match (left.clone(), right.clone()) {
-        (Value::Number(left), Value::Number(right)) => Ok(Value::Number(left + right)),
-        _ => {
-            let left_string = try!(try!(left.get("toString", global.clone())
-                .or(throw_string(format!("can't convert {} to primitive type", left.debug_string()))))
-                .apply(vec![], Context {this: left.clone(), local: global.clone(), global: global.clone()})
-                .or(throw_string(format!("can't convert {} to primitive type", left.debug_string())))).to_string();
-
-            let right_string = try!(try!(right.get("toString", global.clone())
-                .or(throw_string(format!("can't convert {} to primitive type", right.debug_string()))))
-                .apply(vec![], Context {this: right.clone(), local: global.clone(), global: global.clone()})
-                .or(throw_string(format!("can't convert {} to primitive type", right.debug_string())))).to_string();
-
-            Ok(Value::String(left_string + &right_string))
-        }
-    }
-}
-
 fn eval_binary(op: &ast::BinaryOp, left: &ast::Expression, right: &ast::Expression, context: Context) -> JSResult {
     let left = try!(eval_expression(left, context.clone()));
     let right = try!(eval_expression(right, context.clone()));
 
     match op {
-        &ast::BinaryOp::Add => eval_add(left, right, context.global),
+        &ast::BinaryOp::Add => left.add(&right, context.global),
         &ast::BinaryOp::Subtract => Ok(Value::Number(left.to_number() - right.to_number())),
 
         &ast::BinaryOp::Multiply => Ok(Value::Number(left.to_number() * right.to_number())),
