@@ -289,14 +289,16 @@ impl Value {
             &Value::Number(_) => global.clone().get("Number").get("prototype", global.clone()).get(key, global),
             &Value::String(_) => global.clone().get("String").get("prototype", global.clone()).get(key, global),
             &Value::Object(ref obj) => obj.get(key),
-            _ => throw_string(format!("{:?} is not an object", self))
+            &Value::Undefined => throw_string("undefined has no properties".to_string())
         }
     }
 
     pub fn set(&self, key: &str, val: Value) -> JSResult {
         match self {
+            &Value::Number(_) => Ok(Value::Undefined),
+            &Value::String(_) => Ok(Value::Undefined),
             &Value::Object(ref obj) => obj.set(key, val),
-            _ => throw_string(format!("{:?} is not an object", self))
+            &Value::Undefined => throw_string("undefined has no properties".to_string())
         }
     }
 
