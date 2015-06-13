@@ -2250,13 +2250,53 @@ fn parse___<'input>(input: &'input str, state: &mut ParseState, pos: usize)
 }
 fn parse_whitespace<'input>(input: &'input str, state: &mut ParseState,
                             pos: usize) -> RuleResult<()> {
-    if input.len() > pos {
-        let (ch, next) = char_range_at(input, pos);
-        match ch {
-            ' ' | '\t' => Matched(next, ()),
-            _ => state.mark_failure(pos, "[ \t]"),
+    {
+        let choice_res =
+            if input.len() > pos {
+                let (ch, next) = char_range_at(input, pos);
+                match ch {
+                    ' ' | '\t' => Matched(next, ()),
+                    _ => state.mark_failure(pos, "[ \t]"),
+                }
+            } else { state.mark_failure(pos, "[ \t]") };
+        match choice_res {
+            Matched(pos, value) => Matched(pos, value),
+            Failed => {
+                let seq_res = slice_eq(input, state, pos, "//");
+                match seq_res {
+                    Matched(pos, _) => {
+                        {
+                            let mut repeat_pos = pos;
+                            loop  {
+                                let pos = repeat_pos;
+                                let step_res =
+                                    if input.len() > pos {
+                                        let (ch, next) =
+                                            char_range_at(input, pos);
+                                        match ch {
+                                            '\n' | '\r' =>
+                                            state.mark_failure(pos,
+                                                               "[^\n\r]"),
+                                            _ => Matched(next, ()),
+                                        }
+                                    } else {
+                                        state.mark_failure(pos, "[^\n\r]")
+                                    };
+                                match step_res {
+                                    Matched(newpos, value) => {
+                                        repeat_pos = newpos;
+                                    }
+                                    Failed => { break ; }
+                                }
+                            }
+                            Matched(repeat_pos, ())
+                        }
+                    }
+                    Failed => Failed,
+                }
+            }
         }
-    } else { state.mark_failure(pos, "[ \t]") }
+    }
 }
 fn parse_newline<'input>(input: &'input str, state: &mut ParseState,
                          pos: usize) -> RuleResult<()> {

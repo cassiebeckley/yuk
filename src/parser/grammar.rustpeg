@@ -146,6 +146,7 @@ __ = (whitespace / newline)*
 
 whitespace
     = [ \t]
+    / "//" [^\n\r]*
 
 newline
     = [\n\r]
