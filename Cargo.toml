@@ -6,6 +6,7 @@ authors = ["David Beckley <beckl.ds@gmail.com>"]
 [[bin]]
 name = "ack"
 doc = false
+test = false
 
 [dependencies]
 maplit = "0.1.1"
