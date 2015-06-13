@@ -1,4 +1,5 @@
 use super::super::{ast, interpret};
+use std::f64;
 
 #[pub]
 parse -> ast::Block
@@ -153,8 +154,8 @@ identifier -> String
     = [a-zA-Z_]+ { match_str.to_string() }
 
 number -> f64
-    // TODO: get rid of "-"? - once we have unary expressions it won't be necessary
-    = "-"? (frac / [0-9]+ frac_opt) (("e" / "E") ("+" / "-")? [0-9]+)? { match_str.parse().unwrap() }
+    = (frac / [0-9]+ frac_opt) (("e" / "E") ("+" / "-")? [0-9]+)? { match_str.parse().unwrap() }
+    / "NaN" { f64::NAN }
 
 frac
     = "." [0-9]+
