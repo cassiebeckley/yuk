@@ -46,8 +46,14 @@ pub enum Expression {
 
 #[derive(Debug, Clone)]
 pub enum Access {
-    Member(Box<Expression>, Identifier),
+    Member(Box<Expression>, Accessor),
     Identifier(Identifier)
+}
+
+#[derive(Debug, Clone)]
+pub enum Accessor {
+    Identifier(Identifier),
+    Expression(Box<Expression>)
 }
 
 pub type Identifier = String;

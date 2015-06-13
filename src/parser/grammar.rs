@@ -1224,7 +1224,7 @@ fn parse_access<'input>(input: &'input str, state: &mut ParseState,
                                                         let mut iter =
                                                             c.into_iter();
                                                         let (first_calls,
-                                                             first_id) =
+                                                             first_ac) =
                                                             iter.next().unwrap();
                                                         let mut expr = p;
                                                         for call in
@@ -1235,8 +1235,8 @@ fn parse_access<'input>(input: &'input str, state: &mut ParseState,
                                                         }
                                                         let mut ret =
                                                             ast::Access::Member(Box::new(expr),
-                                                                                first_id);
-                                                        for (calls, id) in
+                                                                                first_ac);
+                                                        for (calls, ac) in
                                                             iter {
                                                             let mut expr =
                                                                 ast::Expression::Access(ret);
@@ -1248,7 +1248,7 @@ fn parse_access<'input>(input: &'input str, state: &mut ParseState,
                                                             }
                                                             ret =
                                                                 ast::Access::Member(Box::new(expr),
-                                                                                    id)
+                                                                                    ac)
                                                         }
                                                         ret
                                                     })
@@ -1284,7 +1284,7 @@ fn parse_access<'input>(input: &'input str, state: &mut ParseState,
 }
 fn parse_call_access<'input>(input: &'input str, state: &mut ParseState,
                              pos: usize)
- -> RuleResult<(Vec<ast::ExpressionList>, ast::Identifier)> {
+ -> RuleResult<(Vec<ast::ExpressionList>, ast::Accessor)> {
     {
         let start_pos = pos;
         {
@@ -1308,12 +1308,12 @@ fn parse_call_access<'input>(input: &'input str, state: &mut ParseState,
             match seq_res {
                 Matched(pos, c) => {
                     {
-                        let seq_res = parse_dotted(input, state, pos);
+                        let seq_res = parse_accessor(input, state, pos);
                         match seq_res {
-                            Matched(pos, d) => {
+                            Matched(pos, a) => {
                                 {
                                     let match_str = &input[start_pos..pos];
-                                    Matched(pos, { (c, d) })
+                                    Matched(pos, { (c, a) })
                                 }
                             }
                             Failed => Failed,
@@ -1321,6 +1321,48 @@ fn parse_call_access<'input>(input: &'input str, state: &mut ParseState,
                     }
                 }
                 Failed => Failed,
+            }
+        }
+    }
+}
+fn parse_accessor<'input>(input: &'input str, state: &mut ParseState,
+                          pos: usize) -> RuleResult<ast::Accessor> {
+    {
+        let choice_res =
+            {
+                let start_pos = pos;
+                {
+                    let seq_res = parse_dotted(input, state, pos);
+                    match seq_res {
+                        Matched(pos, d) => {
+                            {
+                                let match_str = &input[start_pos..pos];
+                                Matched(pos, { ast::Accessor::Identifier(d) })
+                            }
+                        }
+                        Failed => Failed,
+                    }
+                }
+            };
+        match choice_res {
+            Matched(pos, value) => Matched(pos, value),
+            Failed => {
+                let start_pos = pos;
+                {
+                    let seq_res = parse_subscripted(input, state, pos);
+                    match seq_res {
+                        Matched(pos, s) => {
+                            {
+                                let match_str = &input[start_pos..pos];
+                                Matched(pos,
+                                        {
+                                            ast::Accessor::Expression(Box::new(s))
+                                        })
+                            }
+                        }
+                        Failed => Failed,
+                    }
+                }
             }
         }
     }
@@ -1353,6 +1395,87 @@ fn parse_dotted<'input>(input: &'input str, state: &mut ParseState,
                                                                 &input[start_pos..pos];
                                                             Matched(pos,
                                                                     { i })
+                                                        }
+                                                    }
+                                                    Failed => Failed,
+                                                }
+                                            }
+                                        }
+                                        Failed => Failed,
+                                    }
+                                }
+                            }
+                            Failed => Failed,
+                        }
+                    }
+                }
+                Failed => Failed,
+            }
+        }
+    }
+}
+fn parse_subscripted<'input>(input: &'input str, state: &mut ParseState,
+                             pos: usize) -> RuleResult<ast::Expression> {
+    {
+        let start_pos = pos;
+        {
+            let seq_res = parse___(input, state, pos);
+            match seq_res {
+                Matched(pos, _) => {
+                    {
+                        let seq_res = slice_eq(input, state, pos, "[");
+                        match seq_res {
+                            Matched(pos, _) => {
+                                {
+                                    let seq_res = parse___(input, state, pos);
+                                    match seq_res {
+                                        Matched(pos, _) => {
+                                            {
+                                                let seq_res =
+                                                    parse_expression(input,
+                                                                     state,
+                                                                     pos);
+                                                match seq_res {
+                                                    Matched(pos, e) => {
+                                                        {
+                                                            let seq_res =
+                                                                parse___(input,
+                                                                         state,
+                                                                         pos);
+                                                            match seq_res {
+                                                                Matched(pos,
+                                                                        _) =>
+                                                                {
+                                                                    {
+                                                                        let seq_res =
+                                                                            slice_eq(input,
+                                                                                     state,
+                                                                                     pos,
+                                                                                     "]");
+                                                                        match seq_res
+                                                                            {
+                                                                            Matched(pos,
+                                                                                    _)
+                                                                            =>
+                                                                            {
+                                                                                {
+                                                                                    let match_str =
+                                                                                        &input[start_pos..pos];
+                                                                                    Matched(pos,
+                                                                                            {
+                                                                                                e
+                                                                                            })
+                                                                                }
+                                                                            }
+                                                                            Failed
+                                                                            =>
+                                                                            Failed,
+                                                                        }
+                                                                    }
+                                                                }
+                                                                Failed =>
+                                                                Failed,
+                                                            }
                                                         }
                                                     }
                                                     Failed => Failed,

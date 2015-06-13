@@ -82,30 +82,37 @@ method_call -> ast::Expression
 access -> ast::Access
     = p:atomic_expression c:call_access+ {
         let mut iter = c.into_iter();
-        let (first_calls, first_id) = iter.next().unwrap();
+        let (first_calls, first_ac) = iter.next().unwrap();
         let mut expr = p;
         for call in first_calls {
             expr = ast::Expression::Call(Box::new(expr), call)
         }
-        let mut ret = ast::Access::Member(Box::new(expr), first_id);
+        let mut ret = ast::Access::Member(Box::new(expr), first_ac);
 
-        for (calls, id) in iter {
+        for (calls, ac) in iter {
             let mut expr = ast::Expression::Access(ret);
             for call in calls {
                 expr = ast::Expression::Call(Box::new(expr), call)
             }
-            ret = ast::Access::Member(Box::new(expr), id)
+            ret = ast::Access::Member(Box::new(expr), ac)
         }
 
         ret
     }
     / i:identifier { ast::Access::Identifier(i) }
 
-call_access -> (Vec<ast::ExpressionList>, ast::Identifier)
-    = c:called* d:dotted { (c, d) }
+call_access -> (Vec<ast::ExpressionList>, ast::Accessor)
+    = c:called* a:accessor { (c, a) }
+
+accessor -> ast::Accessor
+    = d:dotted { ast::Accessor::Identifier(d) }
+    / s:subscripted { ast::Accessor::Expression(Box::new(s)) }
 
 dotted -> ast::Identifier
     = __ "." __ i:identifier { i }
+
+subscripted -> ast::Expression
+    = __ "[" __ e:expression __ "]" { e }
 
 called -> ast::ExpressionList
     = __ "(" __ el:expression_list __ ")" { el }

@@ -307,6 +307,7 @@ impl Value {
         }
     }
 
+    /// Formats output for debugging functions
     pub fn debug_string(&self) -> String {
         match self {
             &Value::Number(n) => n.to_string(),
@@ -314,6 +315,15 @@ impl Value {
             &Value::Object(ref o) => o.debug_string(),
             &Value::Undefined => "undefined".to_string(),
         }
+    }
+
+    // TODO: figure out better naming conventions
+    /// Converts value to string using its `toString` attribute
+    pub fn js_to_string(&self, global: Object) -> Result<String, Value> {
+        self.get("toString", global.clone())
+            .and_then(|to_string| to_string.apply(vec![], Context {this: self.clone(), local: global.clone(), global: global.clone()}))
+            .map(|val| val.to_string())
+            .or(throw_string(format!("can't convert {} to primitive type", self.debug_string())))
     }
 
     pub fn from_function(func: Function, prototype: Object) -> Value {
@@ -331,15 +341,8 @@ impl Value {
         match (self.clone(), right.clone()) {
             (Value::Number(left), Value::Number(right)) => Ok(Value::Number(left + right)),
             _ => {
-                let left_string = try!(try!(self.get("toString", global.clone())
-                    .or(throw_string(format!("can't convert {} to primitive type", self.debug_string()))))
-                    .apply(vec![], Context {this: self.clone(), local: global.clone(), global: global.clone()})
-                    .or(throw_string(format!("can't convert {} to primitive type", self.debug_string())))).to_string();
-
-                let right_string = try!(try!(right.get("toString", global.clone())
-                    .or(throw_string(format!("can't convert {} to primitive type", right.debug_string()))))
-                    .apply(vec![], Context {this: right.clone(), local: global.clone(), global: global.clone()})
-                    .or(throw_string(format!("can't convert {} to primitive type", right.debug_string())))).to_string();
+                let left_string = try!(self.js_to_string(global.clone()));
+                let right_string = try!(right.js_to_string(global));
 
                 Ok(Value::String(left_string + &right_string))
             }
@@ -402,16 +405,29 @@ fn eval_expression_list(expressions: &Vec<ast::Expression>, context: Context) ->
     Ok(values)
 }
 
+fn eval_accessor(acor: &ast::Accessor, context: Context) -> Result<String, Value> {
+    match acor {
+        &ast::Accessor::Identifier(ref id) => Ok(id.clone()),
+        &ast::Accessor::Expression(ref e) => try!(eval_expression(e, context.clone())).js_to_string(context.global)
+    }
+}
+
 fn access_get(access: &ast::Access, context: Context) -> JSResult {
     match access {
-        &ast::Access::Member(ref e, ref i) => try!(eval_expression(e, context.clone())).get(i, context.global),
+        &ast::Access::Member(ref e, ref a) => {
+            let id = try!(eval_accessor(a, context.clone()));
+            eval_expression(e, context.clone()).get(&id, context.global)
+        },
         &ast::Access::Identifier(ref i) => context.local.get_or_err(i)
     }
 }
 
 fn access_set(access: &ast::Access, context: Context, val: Value) -> JSResult {
     match access {
-        &ast::Access::Member(ref e, ref i) => try!(eval_expression(e, context)).set(i, val),
+        &ast::Access::Member(ref e, ref a) => {
+            let id = try!(eval_accessor(a, context.clone()));
+            try!(eval_expression(e, context)).set(&id, val)
+        },
         &ast::Access::Identifier(ref i) => context.local.outer_set(i, val)
     }
 }
