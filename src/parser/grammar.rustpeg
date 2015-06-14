@@ -134,6 +134,7 @@ expression_list -> ast::ExpressionList
 
 literal -> interpret::Value
     = n:number { interpret::Value::Number(n) }
+    / b:boolean { interpret::Value::Boolean(b) }
     / s:string { interpret::Value::String(s) }
     / "null" { interpret::Value::Object(interpret::Object::Null) }
     / "undefined" { interpret::Value::Undefined }
@@ -181,6 +182,10 @@ identifier -> String
 number -> f64
     = (frac / [0-9]+ frac_opt) (("e" / "E") ("+" / "-")? [0-9]+)? { match_str.parse().unwrap() }
     / "NaN" { f64::NAN }
+
+boolean -> bool
+    = "true" { true }
+    / "false" { false }
 
 frac
     = "." [0-9]+

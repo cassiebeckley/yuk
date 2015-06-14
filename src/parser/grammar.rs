@@ -1863,15 +1863,15 @@ fn parse_literal<'input>(input: &'input str, state: &mut ParseState,
                     {
                         let start_pos = pos;
                         {
-                            let seq_res = parse_string(input, state, pos);
+                            let seq_res = parse_boolean(input, state, pos);
                             match seq_res {
-                                Matched(pos, s) => {
+                                Matched(pos, b) => {
                                     {
                                         let match_str =
                                             &input[start_pos..pos];
                                         Matched(pos,
                                                 {
-                                                    interpret::Value::String(s)
+                                                    interpret::Value::Boolean(b)
                                                 })
                                     }
                                 }
@@ -1887,15 +1887,15 @@ fn parse_literal<'input>(input: &'input str, state: &mut ParseState,
                                 let start_pos = pos;
                                 {
                                     let seq_res =
-                                        slice_eq(input, state, pos, "null");
+                                        parse_string(input, state, pos);
                                     match seq_res {
-                                        Matched(pos, _) => {
+                                        Matched(pos, s) => {
                                             {
                                                 let match_str =
                                                     &input[start_pos..pos];
                                                 Matched(pos,
                                                         {
-                                                            interpret::Value::Object(interpret::Object::Null)
+                                                            interpret::Value::String(s)
                                                         })
                                             }
                                         }
@@ -1906,23 +1906,51 @@ fn parse_literal<'input>(input: &'input str, state: &mut ParseState,
                         match choice_res {
                             Matched(pos, value) => Matched(pos, value),
                             Failed => {
-                                let start_pos = pos;
-                                {
-                                    let seq_res =
-                                        slice_eq(input, state, pos,
-                                                 "undefined");
-                                    match seq_res {
-                                        Matched(pos, _) => {
-                                            {
-                                                let match_str =
-                                                    &input[start_pos..pos];
-                                                Matched(pos,
-                                                        {
-                                                            interpret::Value::Undefined
-                                                        })
+                                let choice_res =
+                                    {
+                                        let start_pos = pos;
+                                        {
+                                            let seq_res =
+                                                slice_eq(input, state, pos,
+                                                         "null");
+                                            match seq_res {
+                                                Matched(pos, _) => {
+                                                    {
+                                                        let match_str =
+                                                            &input[start_pos..pos];
+                                                        Matched(pos,
+                                                                {
+                                                                    interpret::Value::Object(interpret::Object::Null)
+                                                                })
+                                                    }
+                                                }
+                                                Failed => Failed,
                                             }
                                         }
-                                        Failed => Failed,
+                                    };
+                                match choice_res {
+                                    Matched(pos, value) =>
+                                    Matched(pos, value),
+                                    Failed => {
+                                        let start_pos = pos;
+                                        {
+                                            let seq_res =
+                                                slice_eq(input, state, pos,
+                                                         "undefined");
+                                            match seq_res {
+                                                Matched(pos, _) => {
+                                                    {
+                                                        let match_str =
+                                                            &input[start_pos..pos];
+                                                        Matched(pos,
+                                                                {
+                                                                    interpret::Value::Undefined
+                                                                })
+                                                    }
+                                                }
+                                                Failed => Failed,
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -3094,6 +3122,45 @@ fn parse_number<'input>(input: &'input str, state: &mut ParseState,
                             {
                                 let match_str = &input[start_pos..pos];
                                 Matched(pos, { f64::NAN })
+                            }
+                        }
+                        Failed => Failed,
+                    }
+                }
+            }
+        }
+    }
+}
+fn parse_boolean<'input>(input: &'input str, state: &mut ParseState,
+                         pos: usize) -> RuleResult<bool> {
+    {
+        let choice_res =
+            {
+                let start_pos = pos;
+                {
+                    let seq_res = slice_eq(input, state, pos, "true");
+                    match seq_res {
+                        Matched(pos, _) => {
+                            {
+                                let match_str = &input[start_pos..pos];
+                                Matched(pos, { true })
+                            }
+                        }
+                        Failed => Failed,
+                    }
+                }
+            };
+        match choice_res {
+            Matched(pos, value) => Matched(pos, value),
+            Failed => {
+                let start_pos = pos;
+                {
+                    let seq_res = slice_eq(input, state, pos, "false");
+                    match seq_res {
+                        Matched(pos, _) => {
+                            {
+                                let match_str = &input[start_pos..pos];
+                                Matched(pos, { false })
                             }
                         }
                         Failed => Failed,

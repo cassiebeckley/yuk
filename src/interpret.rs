@@ -284,6 +284,7 @@ impl cmp::PartialEq for Object {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Number(f64),
+    Boolean(bool),
     String(String),
     Object(Object),
     Undefined
@@ -293,6 +294,7 @@ impl Value {
     pub fn get(&self, key: &str, global: Object) -> JSResult {
         match self {
             &Value::Number(_) => global.clone().get("Number").get("prototype", global.clone()).get(key, global),
+            &Value::Boolean(_) => global.clone().get("Boolean").get("prototype", global.clone()).get(key, global),
             &Value::String(_) => global.clone().get("String").get("prototype", global.clone()).get(key, global),
             &Value::Object(ref obj) => obj.get(key),
             &Value::Undefined => throw_string("undefined has no properties".to_string())
@@ -302,6 +304,7 @@ impl Value {
     pub fn set(&self, key: &str, val: Value) -> JSResult {
         match self {
             &Value::Number(_) => Ok(Value::Undefined),
+            &Value::Boolean(_) => Ok(Value::Undefined),
             &Value::String(_) => Ok(Value::Undefined),
             &Value::Object(ref obj) => obj.set(key, val),
             &Value::Undefined => throw_string("undefined has no properties".to_string())
@@ -319,6 +322,7 @@ impl Value {
     pub fn debug_string(&self) -> String {
         match self {
             &Value::Number(n) => n.to_string(),
+            &Value::Boolean(b) => b.to_string(),
             &Value::String(ref s) => s.to_string(),
             &Value::Object(ref o) => o.debug_string(),
             &Value::Undefined => "undefined".to_string(),
@@ -365,6 +369,7 @@ impl Value {
     pub fn to_number(&self) -> f64 {
         match self {
             &Value::Number(n) => n,
+            &Value::Boolean(_) => f64::NAN,
             &Value::String(ref s) => s.parse().unwrap_or(f64::NAN),
             &Value::Object(_) => f64::NAN,
             &Value::Undefined => f64::NAN
@@ -374,6 +379,7 @@ impl Value {
     pub fn to_string(&self) -> String {
         match self {
             &Value::Number(_) => String::new(),
+            &Value::Boolean(_) => String::new(),
             &Value::String(ref s) => s.clone(),
             &Value::Object(_) => String::new(),
             &Value::Undefined => String::new()
