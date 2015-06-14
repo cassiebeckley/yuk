@@ -1,4 +1,4 @@
-pub use super::interpret::{Value, UserFunction};
+pub use super::interpret::{Value};
 
 pub type Block = Vec<Statement>;
 
@@ -21,7 +21,7 @@ pub enum Statement {
 #[derive(Debug, Clone)]
 pub enum Declaration {
     Variable(Identifier, Option<Expression>),
-    Function(Identifier, UserFunction)
+    Function(Identifier, Function)
 }
 
 #[derive(Debug, Clone)]
@@ -44,7 +44,7 @@ pub enum Expression {
     Access(Access),
     Call(Box<Expression>, ExpressionList),
     Literal(Value),
-    Function(UserFunction),
+    Function(Function),
     Unary(UnaryOp, Box<Expression>),
     Binary(BinaryOp, Box<Expression>, Box<Expression>),
     Object(Vec<(String, Expression)>),
@@ -61,6 +61,14 @@ pub enum Access {
 pub enum Accessor {
     Identifier(Identifier),
     Expression(Box<Expression>)
+}
+
+#[derive(Debug, Clone)]
+pub struct Function {
+    pub id: Option<Identifier>,
+    pub parameters: Vec<String>,
+    pub body: InnerBlock,
+    pub source: String
 }
 
 pub type Identifier = String;

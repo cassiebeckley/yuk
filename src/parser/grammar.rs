@@ -1934,8 +1934,7 @@ fn parse_literal<'input>(input: &'input str, state: &mut ParseState,
     }
 }
 fn parse_function_literal<'input>(input: &'input str, state: &mut ParseState,
-                                  pos: usize)
- -> RuleResult<interpret::UserFunction> {
+                                  pos: usize) -> RuleResult<ast::Function> {
     {
         let start_pos = pos;
         {
@@ -2047,14 +2046,14 @@ fn parse_function_literal<'input>(input: &'input str, state: &mut ParseState,
                                                                                                                                                     &input[start_pos..pos];
                                                                                                                                                 Matched(pos,
                                                                                                                                                         {
-                                                                                                                                                            interpret::UserFunction{id:
-                                                                                                                                                                                        i,
-                                                                                                                                                                                    parameters:
-                                                                                                                                                                                        p,
-                                                                                                                                                                                    body:
-                                                                                                                                                                                        ib,
-                                                                                                                                                                                    source:
-                                                                                                                                                                                        match_str.to_string(),}
+                                                                                                                                                            ast::Function{id:
+                                                                                                                                                                              i,
+                                                                                                                                                                          parameters:
+                                                                                                                                                                              p,
+                                                                                                                                                                          body:
+                                                                                                                                                                              ib,
+                                                                                                                                                                          source:
+                                                                                                                                                                              match_str.to_string(),}
                                                                                                                                                         })
                                                                                                                                             }
                                                                                                                                         }
@@ -2225,14 +2224,14 @@ fn parse_function_declaration<'input>(input: &'input str,
                                                                                                                                                 Matched(pos,
                                                                                                                                                         {
                                                                                                                                                             ast::Declaration::Function(i.clone(),
-                                                                                                                                                                                       interpret::UserFunction{id:
-                                                                                                                                                                                                                   Some(i),
-                                                                                                                                                                                                               parameters:
-                                                                                                                                                                                                                   p,
-                                                                                                                                                                                                               body:
-                                                                                                                                                                                                                   ib,
-                                                                                                                                                                                                               source:
-                                                                                                                                                                                                                   match_str.to_string(),})
+                                                                                                                                                                                       ast::Function{id:
+                                                                                                                                                                                                         Some(i),
+                                                                                                                                                                                                     parameters:
+                                                                                                                                                                                                         p,
+                                                                                                                                                                                                     body:
+                                                                                                                                                                                                         ib,
+                                                                                                                                                                                                     source:
+                                                                                                                                                                                                         match_str.to_string(),})
                                                                                                                                                         })
                                                                                                                                             }
                                                                                                                                         }

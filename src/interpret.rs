@@ -45,10 +45,18 @@ impl Context {
 
 #[derive(Debug, Clone)]
 pub struct UserFunction {
-    pub id: Option<ast::Identifier>,
-    pub parameters: Vec<String>,
-    pub body: ast::InnerBlock,
-    pub source: String
+    pub function: ast::Function,
+    pub local: Object
+}
+
+impl UserFunction {
+    // Creates a UserFunction from `function` and `local`
+    pub fn new(function: ast::Function, local: Object) -> UserFunction {
+        UserFunction {
+            function: function,
+            local: local
+        }
+    }
 }
 
 pub enum Function {
@@ -69,8 +77,8 @@ impl Function {
     fn apply(&self, arguments: Vec<Value>, context: Context) -> JSResult {
         match self {
             &Function::Native(ref f) => f(arguments, context),
-            &Function::User (UserFunction {id: _, parameters: ref p, body: ref b, source: _}) => {
-                let inner_env = Object::Object(Rc::new(RefCell::new(ActualObject::create(context.global.clone()))));
+            &Function::User (UserFunction {function: ast::Function {id: _, parameters: ref p, body: ref b, source: _}, local: ref closure_scope}) => {
+                let inner_env = Object::Object(Rc::new(RefCell::new(ActualObject::create(closure_scope.clone()))));
                 let undef = Value::Undefined;
                 for (argument, parameter) in arguments.iter().chain(iter::repeat(&undef)).zip(p) {
                     try!(inner_env.set(parameter, argument.clone()));
@@ -84,15 +92,15 @@ impl Function {
     fn debug_string(&self) -> String {
         match self {
             &Function::Native(_) => "function() {\n    [native code]\n}".to_string(),
-            &Function::User(UserFunction {id: Some(ref id), parameters: _, body: _, source: _}) => format!("function {}()", id),
-            &Function::User(UserFunction {id: None, parameters: _, body: _, source: _}) => "function()".to_string(),
+            &Function::User(UserFunction {function: ast::Function {id: Some(ref id), parameters: _, body: _, source: _}, local: _ }) => format!("function {}()", id),
+            &Function::User(UserFunction {function: ast::Function {id: None, parameters: _, body: _, source: _}, local: _}) => "function()".to_string(),
         }
     }
 
     pub fn to_string(&self) -> String {
         match self {
             &Function::Native(_) => "function() {\n    [native code]\n}".to_string(),
-            &Function::User(UserFunction {id: _, parameters: _, body: _, source: ref s}) => s.to_string()
+            &Function::User(UserFunction {function: ast::Function {id: _, parameters: _, body: _, source: ref s}, local: _}) => s.to_string()
         }
     }
 }
@@ -471,12 +479,12 @@ fn eval_expression(expression: &ast::Expression, context: Context) -> JSResult {
         &ast::Expression::Call(ref f, ref a) => eval_call(f, a, context),
         &ast::Expression::Access(ref a) => access_get(a, context),
         &ast::Expression::Literal(ref l) => Ok(l.clone()),
-        &ast::Expression::Function(ref uf) => {
+        &ast::Expression::Function(ref f) => {
             let fp = match try!(try!(context.global.get("Function")).get("prototype", context.global)) {
                 Value::Object(o) => o,
                 _ => try!(throw_string("Function.prototype must be an obect".to_string()))
             };
-            Ok(Value::from_function(Function::User(uf.clone()), fp))
+            Ok(Value::from_function(Function::User(UserFunction::new(f.clone(), context.local)), fp))
         },
         &ast::Expression::Unary(ref u, ref e) => eval_unary(u, e, context),
         &ast::Expression::Binary(ref b, ref l, ref r) => eval_binary(b, l, r, context),
@@ -523,7 +531,7 @@ pub fn eval_block(program: &ast::Block, context: Context) -> JSResult {
         if let &ast::Statement::Declaration(ref decl) = statement {
             match decl {
                 &ast::Declaration::Variable(ref id, _) => try!(context.local.set(id, Value::Undefined)),
-                &ast::Declaration::Function(ref id, ref f) => try!(context.local.set(id, Value::from_function(Function::User(f.clone()), function_prototype.clone())))
+                &ast::Declaration::Function(ref id, ref f) => try!(context.local.set(id, Value::from_function(Function::User(UserFunction::new(f.clone(), context.local.clone())), function_prototype.clone())))
             };
         }
     }
