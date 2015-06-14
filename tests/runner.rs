@@ -7,7 +7,7 @@ use std::path::Path;
 use ack::runtime::Ack;
 use ack::interpret::{Value, Function, JSResult, Context, throw_string};
 
-const DIRECTORY: &'static str = "./tests/js/";
+const DIRECTORY: &'static str = "tests/js/";
 const COUNT: &'static str = "__assert_eq_call_count";
 
 // Use strict equals, keeping track of the number of calls
