@@ -376,6 +376,16 @@ impl Value {
         }
     }
 
+    pub fn to_boolean(&self) -> bool {
+        match self {
+            &Value::Number(n) => n != 0.0,
+            &Value::Boolean(b) => b,
+            &Value::String(ref s) => !s.is_empty(),
+            &Value::Object(_) => true,
+            &Value::Undefined => false
+        }
+    }
+
     pub fn to_string(&self) -> String {
         match self {
             &Value::Number(_) => String::new(),
@@ -520,6 +530,15 @@ fn eval_statement(statement: &ast::Statement, context: Context) -> JSResult {
             _ => Ok(Value::Undefined)
         },
         &ast::Statement::Throw(ref e) => Err(try!(eval_expression(e, context))),
+        &ast::Statement::If(ref condition, ref consequent, ref alternate) => {
+            if try!(eval_expression(condition, context.clone())).to_boolean() {
+                eval_inner_block(consequent, context)
+            } else if let &Some(ref alt) = alternate {
+                eval_inner_block(alt, context)
+            } else {
+                Ok(Value::Undefined)
+            }
+        }
         &ast::Statement::Empty => Ok(Value::Undefined)
     }
 }

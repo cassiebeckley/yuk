@@ -15,6 +15,7 @@ pub enum Statement {
     Expression(Expression),
     Declaration(Declaration),
     Throw(Expression),
+    If(Expression, InnerBlock, Option<InnerBlock>),
     Empty
 }
 

@@ -17,7 +17,8 @@ block -> ast::Block
     }
 
 statement -> ast::Statement
-    = __ t:terminated terminator { t }
+    = __ i:if { i }
+    / __ t:terminated terminator { t }
     / __ ";" { ast::Statement::Empty }
 
 terminator
@@ -31,6 +32,14 @@ terminated -> ast::Statement
 declaration -> ast::Declaration
     = "var" __ id:identifier init:(__ "=" __ e:expression { e })? { ast::Declaration::Variable(id, init) }
     / function_declaration
+
+if -> ast::Statement
+    = "if" __ "(" __ cond:expression __ ")" __ cons:braces alt:(__ "else" __ b:braces {b} )? __ { ast::Statement::If(cond, cons, alt) }
+
+braces -> ast::InnerBlock
+    = s:statement { ast::InnerBlock {block: vec![s], return_exp: None}}
+    / r:return { ast::InnerBlock {block: vec![], return_exp: Some(r)}}
+    / "{" __ b:inner_block __ "}" { b }
 
 expression -> ast::Expression
     = l:product s:(__ op:sum_op __ r:product { (op, r) })* {
@@ -194,14 +203,14 @@ frac_opt
     = frac? { () }
 
 string -> String
-    = "\"" s:(escape / [^"] { match_str.chars().next().unwrap() })+ "\"" {
+    = "\"" s:(escape / [^"] { match_str.chars().next().unwrap() })* "\"" {
         let mut result = String::new();
         for c in s {
             result.push(c);
         }
         result
     }
-    / "'" s:(escape / [^'] { match_str.chars().next().unwrap() })+ "'" {
+    / "'" s:(escape / [^'] { match_str.chars().next().unwrap() })* "'" {
         let mut result = String::new();
         for c in s {
             result.push(c);
