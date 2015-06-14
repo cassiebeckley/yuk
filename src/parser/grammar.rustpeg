@@ -17,8 +17,11 @@ block -> ast::Block
     }
 
 statement -> ast::Statement
-    = __ t:terminated (__ ";" / whitespace* newline) { t }
+    = __ t:terminated terminator { t }
     / __ ";" { ast::Statement::Empty }
+
+terminator
+    = (__ ";" / whitespace* newline)
 
 terminated -> ast::Statement
     = d:declaration { ast::Statement::Declaration(d) }
@@ -136,17 +139,24 @@ literal -> interpret::Value
     / "undefined" { interpret::Value::Undefined }
 
 function_literal -> interpret::UserFunction
-    = "function" __ i:identifier? __ "(" p:parameters ")" __ "{" b:block "}" {
-        interpret::UserFunction {id: i, parameters: p, body: b, source: match_str.to_string()}
+    = "function" __ i:identifier? __ "(" p:parameters ")" __ "{" ib:inner_block "}" {
+        interpret::UserFunction {id: i, parameters: p, body: ib, source: match_str.to_string()}
     }
 
 function_declaration -> ast::Declaration
-    = "function" __ i:identifier __ "(" p:parameters ")" __ "{" b:block "}" {
+    = "function" __ i:identifier __ "(" p:parameters ")" __ "{" ib:inner_block "}" {
         ast::Declaration::Function(
             i.clone(),
-            interpret::UserFunction {id: Some(i), parameters: p, body: b, source: match_str.to_string()}
+            interpret::UserFunction {id: Some(i), parameters: p, body: ib, source: match_str.to_string()}
         )
     }
+
+inner_block -> ast::InnerBlock
+    // / __ r:return __ { ast::InnerBlock {block: vec![], return_exp: r} }
+    = __ s:statement* __ r:return? __ { ast::InnerBlock {block: s, return_exp: r} }
+
+return -> Box<ast::Expression>
+    = "return" __ e:expression __ ";"? { Box::new(e) }
 
 parameters -> Vec<ast::Identifier>
     = (__ p:identifier __ { p }) ** ","

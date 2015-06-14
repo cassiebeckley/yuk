@@ -47,7 +47,7 @@ impl Context {
 pub struct UserFunction {
     pub id: Option<ast::Identifier>,
     pub parameters: Vec<String>,
-    pub body: ast::Block,
+    pub body: ast::InnerBlock,
     pub source: String
 }
 
@@ -76,9 +76,7 @@ impl Function {
                     try!(inner_env.set(parameter, argument.clone()));
                 }
 
-                try!(eval_block(b, Context {this: context.this, local: inner_env.clone(), global: context.global}));
-
-                Ok(Value::Undefined)
+                eval_inner_block(b, Context {this: context.this, local: inner_env.clone(), global: context.global})
             }
         }
     }
@@ -378,6 +376,14 @@ impl Value {
 // TODO: Use proper exceptions, rather than strings
 pub fn throw_string<T>(err: String) -> Result<T, Value> {
     Err(Value::String(err))
+}
+
+fn eval_inner_block(block: &ast::InnerBlock, context: Context) -> JSResult {
+    try!(eval_block(&block.block, context.clone()));
+    match &block.return_exp {
+        &Some(ref e) => eval_expression(e, context),
+        &None => Ok(Value::Undefined)
+    }
 }
 
 fn eval_call(function: &ast::Expression, arguments: &ast::ExpressionList, mut context: Context) -> JSResult {

@@ -5,6 +5,12 @@ pub type Block = Vec<Statement>;
 pub type ExpressionList = Vec<Expression>;
 
 #[derive(Debug, Clone)]
+pub struct InnerBlock {
+    pub block: Vec<Statement>,
+    pub return_exp: Option<Box<Expression>>
+}
+
+#[derive(Debug, Clone)]
 pub enum Statement {
     Expression(Expression),
     Declaration(Declaration),
