@@ -474,6 +474,14 @@ fn eval_expression(expression: &ast::Expression, context: Context) -> JSResult {
         },
         &ast::Expression::Unary(ref u, ref e) => eval_unary(u, e, context),
         &ast::Expression::Binary(ref b, ref l, ref r) => eval_binary(b, l, r, context),
+        &ast::Expression::Object(ref exprs) => {
+            let mut obj = HashMap::new();
+            for &(ref key, ref expr) in exprs {
+                obj.insert(key.clone(), try!(eval_expression(expr, context.clone())));
+            }
+
+            Ok(Value::Object(Object::from_map(obj)))
+        },
         &ast::Expression::This => Ok(context.this)
     }
 }

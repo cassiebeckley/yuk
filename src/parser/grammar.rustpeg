@@ -1,4 +1,5 @@
 use super::super::{ast, interpret};
+
 use std::f64;
 
 #[pub]
@@ -53,6 +54,7 @@ product -> ast::Expression
 simple_expression -> ast::Expression
     = v:literal { ast::Expression::Literal(v) }
     / f:function_literal { ast::Expression::Function(f) }
+    / o:object { ast::Expression::Object(o) }
     / lhs:access __ "=" __ rhs:expression { ast::Expression::Assignment(lhs, Box::new(rhs)) }
     / method_call
     / atomic_expression
@@ -150,6 +152,12 @@ parameters -> Vec<ast::Identifier>
     = (__ p:identifier __ { p }) ** ","
 
 __ = (whitespace / newline)*
+
+object -> Vec<(String, ast::Expression)>
+    = "{" __ ps:((__ p:pair __ {p}) ** ",") __ "}" { ps }
+
+pair -> (String, ast::Expression)
+    = id:identifier __ ":" __ e:expression { (id, e) }
 
 whitespace
     = [ \t]

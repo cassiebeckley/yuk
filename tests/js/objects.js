@@ -1,6 +1,16 @@
-// TODO: use real object literal
-var object = function(){};
 var key = "hello";
+var object = {
+  bleh: "BLEH!",
+  andyet: {
+    key: key,
+    other: key
+  }
+};
+
+assert_eq(object.bleh, "BLEH!");
+assert_eq(object.andyet.key, "hello");
+assert_eq(object.andyet.key, object["andyet"]["other"]);
+assert_eq(object["andyet"].key, object.andyet["other"]);
 
 object.hello = "Hey!";
 
