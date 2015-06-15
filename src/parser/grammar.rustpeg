@@ -42,6 +42,12 @@ braces -> ast::InnerBlock
     / "{" __ b:inner_block __ "}" { b }
 
 expression -> ast::Expression
+    = cond:sum __ "?" __ cons:expression __ ":" __ alt:expression {
+        ast::Expression::Ternary(Box::new(cond), Box::new(cons), Box::new(alt))
+    }
+    / sum
+
+sum -> ast::Expression
     = l:product s:(__ op:sum_op __ r:product { (op, r) })* {
         let mut expr = l;
 

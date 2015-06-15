@@ -48,6 +48,7 @@ pub enum Expression {
     Function(Function),
     Unary(UnaryOp, Box<Expression>),
     Binary(BinaryOp, Box<Expression>, Box<Expression>),
+    Ternary(Box<Expression>, Box<Expression>, Box<Expression>),
     Object(Vec<(String, Expression)>),
     This
 }

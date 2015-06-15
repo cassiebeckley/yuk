@@ -37,10 +37,17 @@ assert_eq(res, 256);
 if (32) res = 726; else res = 35; assert_eq(res, 726);
 if (0) res = 726; else res = 35; assert_eq(res, 35);
 
-// Conditional expression
+// Conditional expressions
 
 assert_eq(true ? 10 : 20, 10);
 assert_eq(false ? 10 : 20, 20);
 assert_eq(5 ? 10 : 20, 10);
 assert_eq(-5 ? 10 : 20, 10);
 assert_eq(-(5 ? 10 : 20), -10);
+
+assert_eq(true ? true ? 10 : 15 : 20, 10);
+assert_eq(true ? (true ? 10 : 15) : 20, 10);
+assert_eq(false ? false : true, true);
+assert_eq(false ? false : true ? 10 : 20, 10);
+assert_eq(0 + 0 ? false : true ? 10 : 20, 10);
+assert_eq(true ? false : true ? 10 : 20, false);
