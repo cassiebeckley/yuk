@@ -34,7 +34,13 @@ if ("") {} else {
 
 assert_eq(res, 256);
 
-var meh;
+if (32) res = 726; else res = 35; assert_eq(res, 726);
+if (0) res = 726; else res = 35; assert_eq(res, 35);
 
-if (32) meh = 726; else meh = 35; assert_eq(meh, 726);
-if (0) meh = 726; else meh = 35; assert_eq(meh, 35);
+// Conditional expression
+
+assert_eq(true ? 10 : 20, 10);
+assert_eq(false ? 10 : 20, 20);
+assert_eq(5 ? 10 : 20, 10);
+assert_eq(-5 ? 10 : 20, 10);
+assert_eq(-(5 ? 10 : 20), -10);
