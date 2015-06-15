@@ -25,7 +25,7 @@ macro_rules! function {
                 let $args = arguments.collect();
                 $body
             }
-            Value::from_function(Function::Native(native), $prototype)
+            Value::from_function(Function::Native(stringify!($f).to_string(), native), $prototype)
         }
     };
     ( $f:ident ($context:ident ; $( $t:ident $x:ident ),* ; $args:ident ) $body:block , $prototype:expr ) => {
@@ -41,7 +41,7 @@ macro_rules! function {
                 let $args: Vec<interpret::Value> = arguments.collect();
                 $body
             }
-            Value::from_function(Function::Native(native), $prototype)
+            Value::from_function(Function::Native(stringify!($f).to_string(), native), $prototype)
         }
     };
     ( $f:ident ($context:ident ; $args:ident ) $body:block , $prototype:expr ) => {
@@ -50,7 +50,7 @@ macro_rules! function {
                 let $args = arguments;
                 $body
             }
-            Value::from_function(Function::Native(native), $prototype)
+            Value::from_function(Function::Native(stringify!($f).to_string(), native), $prototype)
         }
     };
 }

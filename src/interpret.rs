@@ -64,14 +64,14 @@ impl UserFunction {
 }
 
 pub enum Function {
-    Native(fn(Vec<Value>, Context) -> JSResult),
+    Native(String, fn(Vec<Value>, Context) -> JSResult),
     User(UserFunction),
 }
 
 impl fmt::Debug for Function {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            &Function::Native(_) => fmt.write_str("Native([native code])"),
+            &Function::Native(ref id, _) => fmt.write_str(&format!("Native({}, [native code])", id)),
             &Function::User (ref u) => u.fmt(fmt)
         }
     }
@@ -80,7 +80,7 @@ impl fmt::Debug for Function {
 impl Function {
     fn apply(&self, arguments: Vec<Value>, context: Context) -> JSResult {
         match self {
-            &Function::Native(ref f) => f(arguments, context),
+            &Function::Native(_, ref f) => f(arguments, context),
             &Function::User (UserFunction {function: ast::Function {id: _, parameters: ref p, body: ref b, source: _}, local: ref closure_scope}) => {
                 let inner_env = Object::Object(Rc::new(RefCell::new(ActualObject::create(closure_scope.clone()))));
                 let undef = Value::Undefined;
@@ -95,7 +95,7 @@ impl Function {
 
     fn debug_string(&self) -> String {
         match self {
-            &Function::Native(_) => "function() {\n    [native code]\n}".to_string(),
+            &Function::Native(ref id, _) => format!("function {}()", id),
             &Function::User(UserFunction {function: ast::Function {id: Some(ref id), parameters: _, body: _, source: _}, local: _ }) => format!("function {}()", id),
             &Function::User(UserFunction {function: ast::Function {id: None, parameters: _, body: _, source: _}, local: _}) => "function()".to_string(),
         }
@@ -103,7 +103,7 @@ impl Function {
 
     pub fn to_string(&self) -> String {
         match self {
-            &Function::Native(_) => "function() {\n    [native code]\n}".to_string(),
+            &Function::Native(ref id, _) => format!("function {}() {{\n    [native code]\n}}", id),
             &Function::User(UserFunction {function: ast::Function {id: _, parameters: _, body: _, source: ref s}, local: _}) => s.to_string()
         }
     }
