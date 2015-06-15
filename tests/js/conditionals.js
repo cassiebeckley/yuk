@@ -33,3 +33,8 @@ if ("") {} else {
 }
 
 assert_eq(res, 256);
+
+var meh;
+
+if (32) meh = 726; else meh = 35; assert_eq(meh, 726);
+if (0) meh = 726; else meh = 35; assert_eq(meh, 35);
