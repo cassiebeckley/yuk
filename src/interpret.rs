@@ -88,7 +88,11 @@ impl Function {
                     try!(inner_env.set(parameter, argument.clone()));
                 }
 
-                eval_inner_block(b, Context {this: context.this, local: inner_env.clone(), global: context.global})
+                match eval_inner_block(b, Context {this: context.this, local: inner_env.clone(), global: context.global}) {
+                    Tri::Continue(v) => Ok(v),
+                    Tri::Return(v) => Ok(v),
+                    Tri::Error(v) => Err(v)
+                }
             }
         }
     }
@@ -418,11 +422,29 @@ pub fn throw_string<T>(err: String) -> Result<T, Value> {
     Err(Value::String(err))
 }
 
-fn eval_inner_block(block: &ast::InnerBlock, context: Context) -> JSResult {
-    try!(eval_block(&block.block, context.clone()));
+// TODO: come up with better name, or get rid of this altogether
+// make it work nicely at the least
+#[must_use]
+#[derive(Debug)]
+pub enum Tri {
+    Continue(Value),
+    Return(Value),
+    Error(Value)
+}
+
+fn eval_inner_block(block: &ast::InnerBlock, context: Context) -> Tri {
+    match eval_block(&block.block, context.clone()) {
+        Tri::Continue(_) => (),
+        Tri::Return(v) => return Tri::Return(v),
+        Tri::Error(e) => return Tri::Error(e)
+    }
+
     match &block.return_exp {
-        &Some(ref e) => eval_expression(e, context),
-        &None => Ok(Value::Undefined)
+        &Some(ref e) => match eval_expression(e, context) {
+            Ok(v) => Tri::Return(v),
+            Err(e) => Tri::Error(e)
+        },
+        &None => Tri::Continue(Value::Undefined)
     }
 }
 
@@ -539,56 +561,90 @@ fn eval_expression(expression: &ast::Expression, context: Context) -> JSResult {
     }
 }
 
-fn eval_statement(statement: &ast::Statement, context: Context) -> JSResult {
+fn eval_statement(statement: &ast::Statement, context: Context) -> Tri {
     match statement {
-        &ast::Statement::Expression(ref e) => eval_expression(e, context),
+        &ast::Statement::Expression(ref e) => match eval_expression(e, context) {
+            Ok(v) => Tri::Continue(v),
+            Err(e) => Tri::Error(e)
+        },
         &ast::Statement::Declaration(ref d) => match d {
             &ast::Declaration::Variable(ref id, ref init) => {
                 if let &Some(ref expr) = init {
-                    try!(context.local.set(id, try!(eval_expression(expr, context.clone()))));
+                    let init_val = match eval_expression(expr, context.clone()) {
+                        Ok(v) => v,
+                        Err(e) => return Tri::Error(e)
+                    };
+
+                    match context.local.set(id, init_val) {
+                        Ok(_) => (),
+                        Err(e) => return Tri::Error(e)
+                    };
                 }
 
-                Ok(Value::Undefined)
+                Tri::Continue(Value::Undefined)
             },
-            _ => Ok(Value::Undefined)
+            _ => Tri::Continue(Value::Undefined)
         },
-        &ast::Statement::Throw(ref e) => Err(try!(eval_expression(e, context))),
+        &ast::Statement::Throw(ref e) => {
+            let error_val = match eval_expression(e, context) {
+                Ok(v) => v,
+                Err(e) => return Tri::Error(e)
+            };
+
+            Tri::Error(error_val)
+        },
         &ast::Statement::If(ref condition, ref consequent, ref alternate) => {
-            if try!(eval_expression(condition, context.clone())).to_boolean() {
+            let condition = match eval_expression(condition, context.clone()) {
+                Ok(v) => v,
+                Err(e) => return Tri::Error(e)
+            };
+
+            if condition.to_boolean() {
                 eval_inner_block(consequent, context)
             } else if let &Some(ref alt) = alternate {
                 eval_inner_block(alt, context)
             } else {
-                Ok(Value::Undefined)
+                Tri::Continue(Value::Undefined)
             }
         }
-        &ast::Statement::Empty => Ok(Value::Undefined)
+        &ast::Statement::Empty => Tri::Continue(Value::Undefined)
     }
 }
 
-pub fn eval_block(program: &ast::Block, context: Context) -> JSResult {
+pub fn eval_block(program: &ast::Block, context: Context) -> Tri {
     let mut last = Value::Undefined;
 
-    let function_prototype = match try!(context.global.get("Function").get("prototype", context.global.clone())) {
-        Value::Object(o) => o,
-        _ => return throw_string("Function.prototype must be an object".to_string())
+    let function_prototype = match context.global.get("Function").get("prototype", context.global.clone()) {
+        Ok(Value::Object(o)) => o,
+        Err(e) => return Tri::Error(e),
+        _ => return Tri::Error(Value::String("Function.prototype must be an object".to_string()))
     };
 
     // inefficient (I think) but convenient to parse
     for statement in program {
         if let &ast::Statement::Declaration(ref decl) = statement {
             match decl {
-                &ast::Declaration::Variable(ref id, _) => try!(context.local.set(id, Value::Undefined)),
-                &ast::Declaration::Function(ref id, ref f) => try!(context.local.set(id, Value::from_function(Function::User(UserFunction::new(f.clone(), context.local.clone())), function_prototype.clone())))
+                &ast::Declaration::Variable(ref id, _) => match context.local.set(id, Value::Undefined) {
+                    Ok(_) => (),
+                    Err(e) => return Tri::Error(e)
+                },
+                &ast::Declaration::Function(ref id, ref f) => match context.local.set(id, Value::from_function(Function::User(UserFunction::new(f.clone(), context.local.clone())), function_prototype.clone())) {
+                    Ok(_) => (),
+                    Err(e) => return Tri::Error(e)
+                }
             };
         }
     }
 
     for statement in program {
-        last = try!(eval_statement(statement, context.clone()));
+        last = match eval_statement(statement, context.clone()) {
+            Tri::Continue(v) => v,
+            Tri::Return(v) => return Tri::Return(v),
+            Tri::Error(e) => return Tri::Error(e)
+        };
     }
 
-    Ok(last)
+    Tri::Continue(last)
 }
 
 // #[cfg(test)]

@@ -17,7 +17,7 @@ macro_rules! object {
 macro_rules! function {
     ( $f:ident ($context:ident ; $( $x:ident ),* ; $args:ident ) $body:block , $prototype:expr ) => {
         {
-            fn native(arguments: Vec<interpret::Value>, $context: interpret::Context) -> interpret::JSResult {
+            fn native(arguments: Vec<interpret::Value>, mut $context: interpret::Context) -> interpret::JSResult {
                 let mut arguments = arguments.into_iter();
                 $(
                     let $x = arguments.next().unwrap_or(Value::Undefined);
@@ -30,7 +30,7 @@ macro_rules! function {
     };
     ( $f:ident ($context:ident ; $( $t:ident $x:ident ),* ; $args:ident ) $body:block , $prototype:expr ) => {
         {
-            fn native(arguments: Vec<interpret::Value>, $context: interpret::Context) -> interpret::JSResult {
+            fn native(arguments: Vec<interpret::Value>, mut $context: interpret::Context) -> interpret::JSResult {
                 let mut arguments = arguments.into_iter();
                 $(
                     let $x = match arguments.next().unwrap_or(Value::Undefined) {
@@ -72,7 +72,11 @@ impl Ack {
         // println!("AST: {:?}", parsed);
 
         match parsed {
-            Ok(ast) => interpret::eval_block(&ast, self.clone()),
+            Ok(ast) => match interpret::eval_block(&ast, self.clone()) {
+                interpret::Tri::Continue(v) => Ok(v),
+                interpret::Tri::Return(v) => Ok(v),
+                interpret::Tri::Error(e) => Err(e)
+            },
             Err(e) => interpret::throw_string(format!("SyntaxError: {:?}", e))
         }
     }
@@ -135,10 +139,7 @@ fn create_stdlib() -> interpret::Object {
         },
         eval => function!(
             eval(context; String source; _args) {
-                match parser::parse(&source) {
-                    Ok(ast) => interpret::eval_block(&ast, context),
-                    Err(e) => interpret::throw_string(format!("{}", e))
-                }
+                context.eval(&source)
             }, function_prototype.clone()
         ),
         Function => object! {

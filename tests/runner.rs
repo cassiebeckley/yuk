@@ -40,7 +40,7 @@ fn run_tests() {
         file.read_to_string(&mut s).ok().expect(&format!("Could not read {}", path.to_string_lossy()));
 
         let mut ack = Ack::create_stdlib();
-        ack.global.set("assert_eq", Value::from_function(Function::Native(assert_eq), ack.global.clone())).unwrap();
+        ack.global.set("assert_eq", Value::from_function(Function::Native("assert_eq".to_string(), assert_eq), ack.global.clone())).unwrap();
 
         let result = ack.eval(&s);
         println!("{} assertions called", match ack.global.get(COUNT) {Ok(Value::Number(n)) => n, _ => 0.0});

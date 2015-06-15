@@ -39,3 +39,13 @@ var count = counter();
 assert_eq(count(), 0);
 assert_eq(count(), 1);
 assert_eq(count(), 2);
+
+function is_false(x) {
+  if (x) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
+assert_eq(is_false(false), true);
