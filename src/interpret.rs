@@ -9,6 +9,10 @@ use super::ast;
 
 pub type JSResult = Result<Value, Value>;
 
+pub trait ToValue {
+    fn to_value(&self) -> Value;
+}
+
 trait GetFromResult {
     fn get(self, key: &str, global: Object) -> JSResult;
 }
@@ -267,6 +271,12 @@ impl Object {
     }
 }
 
+impl ToValue for Object {
+    fn to_value(&self) -> Value {
+        Value::Object(self.clone())
+    }
+}
+
 impl cmp::PartialEq for Object {
     fn eq(&self, other: &Object) -> bool {
         match (self, other) {
@@ -397,6 +407,12 @@ impl Value {
     }
 }
 
+impl ToValue for Value {
+    fn to_value(&self) -> Value {
+        self.clone()
+    }
+}
+
 // TODO: Use proper exceptions, rather than strings
 pub fn throw_string<T>(err: String) -> Result<T, Value> {
     Err(Value::String(err))
@@ -498,7 +514,7 @@ fn eval_expression(expression: &ast::Expression, context: Context) -> JSResult {
         &ast::Expression::Function(ref f) => {
             let fp = match try!(try!(context.global.get("Function")).get("prototype", context.global)) {
                 Value::Object(o) => o,
-                _ => try!(throw_string("Function.prototype must be an obect".to_string()))
+                _ => try!(throw_string("Function.prototype must be an object".to_string()))
             };
             Ok(Value::from_function(Function::User(UserFunction::new(f.clone(), context.local)), fp))
         },

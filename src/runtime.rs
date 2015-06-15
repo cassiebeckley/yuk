@@ -5,6 +5,56 @@ use super::interpret::{JSResult, Context};
 
 use std::ops::Deref;
 
+macro_rules! object {
+    ( $($key:ident => $value:expr),* ) => {
+        Object::from_map(hashmap! {
+            $(stringify!($key).to_string() => $value.to_value()),*
+        })
+    }
+}
+
+/// Create a native function
+macro_rules! function {
+    ( $f:ident ($context:ident ; $( $x:ident ),* ; $args:ident ) $body:block , $prototype:expr ) => {
+        {
+            fn native(arguments: Vec<interpret::Value>, $context: interpret::Context) -> interpret::JSResult {
+                let mut arguments = arguments.into_iter();
+                $(
+                    let $x = arguments.next().unwrap_or(Value::Undefined);
+                )*
+                let $args = arguments.collect();
+                $body
+            }
+            Value::from_function(Function::Native(native), $prototype)
+        }
+    };
+    ( $f:ident ($context:ident ; $( $t:ident $x:ident ),* ; $args:ident ) $body:block , $prototype:expr ) => {
+        {
+            fn native(arguments: Vec<interpret::Value>, $context: interpret::Context) -> interpret::JSResult {
+                let mut arguments = arguments.into_iter();
+                $(
+                    let $x = match arguments.next().unwrap_or(Value::Undefined) {
+                        Value::$t(b) => b,
+                        o@_ => return interpret::throw_string(format!("{:?} is not a {}", o, stringify!($t)))
+                    };
+                )*
+                let $args: Vec<interpret::Value> = arguments.collect();
+                $body
+            }
+            Value::from_function(Function::Native(native), $prototype)
+        }
+    };
+    ( $f:ident ($context:ident ; $args:ident ) $body:block , $prototype:expr ) => {
+        {
+            fn native(arguments: Vec<interpret::Value>, $context: interpret::Context) -> interpret::JSResult {
+                let $args = arguments;
+                $body
+            }
+            Value::from_function(Function::Native(native), $prototype)
+        }
+    };
+}
+
 pub type Ack = interpret::Context;
 
 /// A high-level interface for the interpreter
@@ -33,70 +83,66 @@ fn create_stdlib() -> interpret::Object {
     use interpret::*;
 
     let function_prototype = Object::new();
-    function_prototype.set("toString", Value::from_function(Function::Native(function_prototype_to_string), function_prototype.clone())).unwrap();
 
-    Object::from_map(hashmap!{
-        "console".to_string() => Value::Object(Object::from_map(hashmap!{
-            "log".to_string() => Value::from_function(Function::Native(console_log), function_prototype.clone())
-        })),
-        "Number".to_string() => Value::Object(Object::from_map(hashmap!{
-            "prototype".to_string() => Value::Object(Object::from_map(hashmap!{
-                "toString".to_string() => Value::from_function(Function::Native(number_prototype_to_string), function_prototype.clone())
-            }))
-        })),
-        "String".to_string() => Value::Object(Object::from_map(hashmap!{
-            "prototype".to_string() => Value::Object(Object::from_map(hashmap!{
-                "toString".to_string() => Value::from_function(Function::Native(string_prototype_to_string), function_prototype.clone())
-            }))
-        })),
-        "eval".to_string() => Value::from_function(Function::Native(js_eval), function_prototype.clone()),
-        "Function".to_string() => Value::Object(Object::from_map(hashmap!{
-            "prototype".to_string() => Value::Object(function_prototype)
-        })),
-    })
-}
+    function_prototype.set("toString", function!(
+        toString(context; _args) {
+            match context.this {
+                interpret::Value::Object(interpret::Object::Object(ref o)) => match o.borrow().deref() {
+                    &interpret::ActualObject {values: _, prototype: _, otype: interpret::ObjectExtension::Function(ref f)} => Ok(interpret::Value::String(f.to_string())),
+                    _ => interpret::throw_string(format!("{:?} is not a function!", context.this))
+                },
+                _ => interpret::throw_string(format!("{:?} is not a function!", context.this))
+            }
+        }, function_prototype.clone()
+    )).unwrap();
 
-fn console_log(arguments: Vec<interpret::Value>, _: Context) -> interpret::JSResult {
-    for value in arguments {
-        print!("{} ", value.debug_string());
-    }
-    println!("");
+    object! {
+        console => object! {
+            log => function!(
+                log(_context; arguments) {
+                    for value in arguments {
+                        print!("{} ", value.debug_string());
+                    }
+                    println!("");
 
-    Ok(interpret::Value::Undefined)
-}
-
-fn number_prototype_to_string(_: Vec<interpret::Value>, context: Context) -> interpret::JSResult {
-    match context.this {
-        interpret::Value::Number(n) => Ok(interpret::Value::String(n.to_string())),
-        _ => interpret::throw_string(format!("{:?} is not a number!", context.this))
-    }
-}
-
-fn string_prototype_to_string(_: Vec<interpret::Value>, context: Context) -> interpret::JSResult {
-    match context.this {
-        interpret::Value::String(s) => Ok(interpret::Value::String(s.to_string())),
-        _ => interpret::throw_string(format!("{:?} is not a string!", context.this))
-    }
-}
-
-fn function_prototype_to_string(_: Vec<interpret::Value>, context: Context) -> interpret::JSResult {
-    match context.this {
-        interpret::Value::Object(interpret::Object::Object(ref o)) => match o.borrow().deref() {
-            &interpret::ActualObject {values: _, prototype: _, otype: interpret::ObjectExtension::Function(ref f)} => Ok(interpret::Value::String(f.to_string())),
-            _ => interpret::throw_string(format!("{:?} is not a function!", context.this))
+                    Ok(interpret::Value::Undefined)
+                }, function_prototype.clone()
+            )
         },
-        _ => interpret::throw_string(format!("{:?} is not a function!", context.this))
-    }
-}
-
-fn js_eval(arguments: Vec<interpret::Value>, context: Context) -> interpret::JSResult {
-    match arguments.get(0) {
-        Some(&interpret::Value::String(ref arg)) => {
-            match parser::parse(&arg.clone()) {
-                Ok(ast) => interpret::eval_block(&ast, context),
-                Err(e) => Err(interpret::Value::String(format!("{}", e)))
+        Number => object! {
+            prototype => object! {
+                toString => function! (
+                    toString(context; _args) {
+                        match context.this {
+                            interpret::Value::Number(n) => Ok(interpret::Value::String(n.to_string())),
+                            _ => interpret::throw_string(format!("{:?} is not a number!", context.this))
+                        }
+                    }, function_prototype.clone()
+                )
             }
         },
-        _ => Ok(interpret::Value::Undefined)
+        String => object! {
+            prototype => object! {
+                toString => function! (
+                    toString(context; _args) {
+                        match context.this {
+                            interpret::Value::String(s) => Ok(interpret::Value::String(s.to_string())),
+                            _ => interpret::throw_string(format!("{:?} is not a string!", context.this))
+                        }
+                    }, function_prototype.clone()
+                )
+            }
+        },
+        eval => function!(
+            eval(context; String source; _args) {
+                match parser::parse(&source) {
+                    Ok(ast) => interpret::eval_block(&ast, context),
+                    Err(e) => interpret::throw_string(format!("{}", e))
+                }
+            }, function_prototype.clone()
+        ),
+        Function => object! {
+            prototype => function_prototype
+        }
     }
 }
