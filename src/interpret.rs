@@ -395,7 +395,7 @@ impl Value {
     pub fn to_number(&self) -> f64 {
         match self {
             &Value::Number(n) => n,
-            &Value::Boolean(_) => f64::NAN,
+            &Value::Boolean(b) => if b {1.0} else {0.0},
             &Value::String(ref s) => s.parse().unwrap_or(f64::NAN),
             &Value::Object(_) => f64::NAN,
             &Value::Undefined => f64::NAN
