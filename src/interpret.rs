@@ -527,26 +527,33 @@ fn eval_unary(op: &ast::UnaryOp, exp: &ast::Expression, context: Context) -> JSR
 
 fn eval_binary(op: &ast::BinaryOp, left: &ast::Expression, right: &ast::Expression, context: Context) -> JSResult {
     let left = try!(eval_expression(left, context.clone()));
-    let right = try!(eval_expression(right, context.clone()));
 
     match op {
-        &ast::BinaryOp::Add => left.add(&right, context.global),
-        &ast::BinaryOp::Subtract => Ok(Value::Number(left.to_number() - right.to_number())),
-        &ast::BinaryOp::LogicalAnd => Ok(if left.to_boolean() && right.to_boolean() {
-            right
+        &ast::BinaryOp::Add => left.add(&try!(eval_expression(right, context.clone())), context.global),
+        &ast::BinaryOp::Subtract => Ok(Value::Number(left.to_number() - try!(eval_expression(right, context.clone())).to_number())),
+        &ast::BinaryOp::LogicalAnd => Ok(if left.to_boolean() {
+            let right = try!(eval_expression(right, context.clone()));
+            if right.to_boolean() {
+                right
+            } else {
+                Value::Boolean(false)
+            }
         } else {
             Value::Boolean(false)
         }),
         &ast::BinaryOp::LogicalOr => Ok(if left.to_boolean() {
             left
-        } else if right.to_boolean() {
-            right
         } else {
-            Value::Boolean(false)
+            let right = try!(eval_expression(right, context.clone()));
+            if right.to_boolean() {
+                right
+            } else {
+                Value::Boolean(false)
+            }
         }),
 
-        &ast::BinaryOp::Multiply => Ok(Value::Number(left.to_number() * right.to_number())),
-        &ast::BinaryOp::Divide => Ok(Value::Number(left.to_number() / right.to_number()))
+        &ast::BinaryOp::Multiply => Ok(Value::Number(left.to_number() * try!(eval_expression(right, context.clone())).to_number())),
+        &ast::BinaryOp::Divide => Ok(Value::Number(left.to_number() / try!(eval_expression(right, context.clone())).to_number()))
     }
 }
 

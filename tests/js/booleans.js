@@ -18,18 +18,18 @@ assert_eq(true || 15, true);
 assert_eq(false || 15, 15);
 
 assert_eq(!true, false);
-// assert_eq(!+true, false);
+assert_eq(!+true, false);
 
-// var test = 0;
+var test = 0;
 
-// false && test = 2;
-// assert_eq(test, 0);
+false && (test = 2);
+assert_eq(test, 0);
 
-// true && test = 2;
-// assert_eq(test, 2);
+true && (test = 2);
+assert_eq(test, 2);
 
-// true || test = 15;
-// assert_eq(test, 2);
+true || (test = 15);
+assert_eq(test, 2);
 
-// false || test = 15;
-// assert_eq(test, 15);
+false || (test = 15);
+assert_eq(test, 15);
