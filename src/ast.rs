@@ -35,6 +35,9 @@ pub enum UnaryOp {
 pub enum BinaryOp {
     Add,
     Subtract,
+    LogicalAnd,
+    LogicalOr,
+
     Multiply,
     Divide
 }

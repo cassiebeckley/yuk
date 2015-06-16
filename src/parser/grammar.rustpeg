@@ -85,6 +85,8 @@ unary_op -> ast::UnaryOp
 sum_op -> ast::BinaryOp
     = "+" { ast::BinaryOp::Add }
     / "-" { ast::BinaryOp::Subtract }
+    / "&&" { ast::BinaryOp::LogicalAnd }
+    / "||" { ast::BinaryOp::LogicalOr }
 
 product_op -> ast::BinaryOp
     = "*" { ast::BinaryOp::Multiply }

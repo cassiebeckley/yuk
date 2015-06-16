@@ -1651,17 +1651,71 @@ fn parse_sum_op<'input>(input: &'input str, state: &mut ParseState,
         match choice_res {
             Matched(pos, value) => Matched(pos, value),
             Failed => {
-                let start_pos = pos;
-                {
-                    let seq_res = slice_eq(input, state, pos, "-");
-                    match seq_res {
-                        Matched(pos, _) => {
-                            {
-                                let match_str = &input[start_pos..pos];
-                                Matched(pos, { ast::BinaryOp::Subtract })
+                let choice_res =
+                    {
+                        let start_pos = pos;
+                        {
+                            let seq_res = slice_eq(input, state, pos, "-");
+                            match seq_res {
+                                Matched(pos, _) => {
+                                    {
+                                        let match_str =
+                                            &input[start_pos..pos];
+                                        Matched(pos,
+                                                { ast::BinaryOp::Subtract })
+                                    }
+                                }
+                                Failed => Failed,
                             }
                         }
-                        Failed => Failed,
+                    };
+                match choice_res {
+                    Matched(pos, value) => Matched(pos, value),
+                    Failed => {
+                        let choice_res =
+                            {
+                                let start_pos = pos;
+                                {
+                                    let seq_res =
+                                        slice_eq(input, state, pos, "&&");
+                                    match seq_res {
+                                        Matched(pos, _) => {
+                                            {
+                                                let match_str =
+                                                    &input[start_pos..pos];
+                                                Matched(pos,
+                                                        {
+                                                            ast::BinaryOp::LogicalAnd
+                                                        })
+                                            }
+                                        }
+                                        Failed => Failed,
+                                    }
+                                }
+                            };
+                        match choice_res {
+                            Matched(pos, value) => Matched(pos, value),
+                            Failed => {
+                                let start_pos = pos;
+                                {
+                                    let seq_res =
+                                        slice_eq(input, state, pos, "||");
+                                    match seq_res {
+                                        Matched(pos, _) => {
+                                            {
+                                                let match_str =
+                                                    &input[start_pos..pos];
+                                                Matched(pos,
+                                                        {
+                                                            ast::BinaryOp::LogicalOr
+                                                        })
+                                            }
+                                        }
+                                        Failed => Failed,
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

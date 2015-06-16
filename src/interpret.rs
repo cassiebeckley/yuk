@@ -366,11 +366,23 @@ impl Value {
     fn add(&self, right: &Value, global: Object) -> JSResult {
         match (self.clone(), right.clone()) {
             (Value::Number(left), Value::Number(right)) => Ok(Value::Number(left + right)),
-            _ => {
-                let left_string = try!(self.js_to_string(global.clone()));
-                let right_string = try!(right.js_to_string(global));
 
-                Ok(Value::String(left_string + &right_string))
+            (left, Value::String(right)) => Ok(Value::String(try!(left.js_to_string(global)) + &right)),
+            (Value::String(left), right) => {
+                let right = try!(right.js_to_string(global));
+                Ok(Value::String(left + &right))
+            },
+            _ => {
+                let (left_num, right_num) = (self.to_number(), right.to_number());
+
+                if !left_num.is_nan() && !right_num.is_nan() {
+                    Ok(Value::Number(left_num + right_num))
+                } else {
+                    let left_string = try!(self.js_to_string(global.clone()));
+                    let right_string = try!(right.js_to_string(global));
+
+                    Ok(Value::String(left_string + &right_string))
+                }
             }
         }
     }
@@ -518,6 +530,18 @@ fn eval_binary(op: &ast::BinaryOp, left: &ast::Expression, right: &ast::Expressi
     match op {
         &ast::BinaryOp::Add => left.add(&right, context.global),
         &ast::BinaryOp::Subtract => Ok(Value::Number(left.to_number() - right.to_number())),
+        &ast::BinaryOp::LogicalAnd => Ok(if left.to_boolean() && right.to_boolean() {
+            right
+        } else {
+            Value::Boolean(false)
+        }),
+        &ast::BinaryOp::LogicalOr => Ok(if left.to_boolean() {
+            left
+        } else if right.to_boolean() {
+            right
+        } else {
+            Value::Boolean(false)
+        }),
 
         &ast::BinaryOp::Multiply => Ok(Value::Number(left.to_number() * right.to_number())),
         &ast::BinaryOp::Divide => Ok(Value::Number(left.to_number() / right.to_number()))
