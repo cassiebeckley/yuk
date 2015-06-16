@@ -628,9 +628,12 @@ pub fn eval_block(program: &ast::Block, context: Context) -> Tri {
                     Ok(_) => (),
                     Err(e) => return Tri::Error(e)
                 },
-                &ast::Declaration::Function(ref id, ref f) => match context.local.set(id, Value::from_function(Function::User(UserFunction::new(f.clone(), context.local.clone())), function_prototype.clone())) {
-                    Ok(_) => (),
-                    Err(e) => return Tri::Error(e)
+                &ast::Declaration::Function(ref id, ref f) => {
+                    let function = Value::from_function(Function::User(UserFunction::new(f.clone(), context.local.clone())), function_prototype.clone());
+                    match context.local.set(id, function) {
+                        Ok(_) => (),
+                        Err(e) => return Tri::Error(e)
+                    }
                 }
             };
         }
