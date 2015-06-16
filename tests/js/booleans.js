@@ -17,7 +17,8 @@ assert_eq(true || false, true);
 assert_eq(true || 15, true);
 assert_eq(false || 15, 15);
 
-// assert_eq(!true, false);
+assert_eq(!true, false);
+// assert_eq(!+true, false);
 
 // var test = 0;
 

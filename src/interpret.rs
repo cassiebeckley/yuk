@@ -518,8 +518,10 @@ fn eval_unary(op: &ast::UnaryOp, exp: &ast::Expression, context: Context) -> JSR
     let val = try!(eval_expression(exp, context));
 
     match op {
+        &ast::UnaryOp::Positive => Ok(Value::Number(val.to_number())),
         &ast::UnaryOp::Negative => Ok(Value::Number(-val.to_number())),
-        &ast::UnaryOp::Positive => Ok(Value::Number(val.to_number()))
+
+        &ast::UnaryOp::LogicalNot => Ok(Value::Boolean(!val.to_boolean())),
     }
 }
 

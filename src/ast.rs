@@ -28,7 +28,9 @@ pub enum Declaration {
 #[derive(Debug, Clone)]
 pub enum UnaryOp {
     Positive,
-    Negative
+    Negative,
+
+    LogicalNot
 }
 
 #[derive(Debug, Clone)]

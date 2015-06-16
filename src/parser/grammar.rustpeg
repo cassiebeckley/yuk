@@ -81,6 +81,7 @@ simple_expression -> ast::Expression
 unary_op -> ast::UnaryOp
     = "+" { ast::UnaryOp::Positive }
     / "-" { ast::UnaryOp::Negative }
+    / "!" { ast::UnaryOp::LogicalNot }
 
 sum_op -> ast::BinaryOp
     = "+" { ast::BinaryOp::Add }
