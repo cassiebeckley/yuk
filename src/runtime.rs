@@ -125,6 +125,11 @@ fn create_stdlib() -> interpret::Object {
         },
         Object => object! {
             Object::Null,
+            create => function!(
+                create(_context; Object proto; _args) {
+                    Ok(Value::Object(Object::create(proto)))
+                }, function_prototype.clone()
+            ),
             prototype => object_prototype.clone()
         },
         Number => object! {

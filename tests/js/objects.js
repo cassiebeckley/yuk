@@ -24,3 +24,17 @@ assert_eq(object[0], 10);
 assert_eq(object["0"], 10);
 
 assert_eq(object.toString(), "[object Object]");
+
+var child = Object.create(object);
+assert_eq(child.bleh, "BLEH!");
+
+child.bleh = 10;
+
+assert_eq(child.bleh, 10);
+assert_eq(object.bleh, "BLEH!");
+
+child.andyet.key = false;
+assert_eq(child.andyet.key, false);
+assert_eq(object.andyet.key, false);
+
+assert_eq(Object.create(null).toString, undefined);
