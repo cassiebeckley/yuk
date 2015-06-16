@@ -553,7 +553,9 @@ fn eval_binary(op: &ast::BinaryOp, left: &ast::Expression, right: &ast::Expressi
         }),
 
         &ast::BinaryOp::Multiply => Ok(Value::Number(left.to_number() * try!(eval_expression(right, context.clone())).to_number())),
-        &ast::BinaryOp::Divide => Ok(Value::Number(left.to_number() / try!(eval_expression(right, context.clone())).to_number()))
+        &ast::BinaryOp::Divide => Ok(Value::Number(left.to_number() / try!(eval_expression(right, context.clone())).to_number())),
+
+        &ast::BinaryOp::StrictEquals => Ok(Value::Boolean(left.strict_equals(&try!(eval_expression(right, context.clone())))))
     }
 }
 

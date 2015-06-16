@@ -42,10 +42,17 @@ braces -> ast::InnerBlock
     / "{" __ b:inner_block __ "}" { b }
 
 expression -> ast::Expression
-    = cond:sum __ "?" __ cons:expression __ ":" __ alt:expression {
+    = cond:equality __ "?" __ cons:expression __ ":" __ alt:expression {
         ast::Expression::Ternary(Box::new(cond), Box::new(cons), Box::new(alt))
     }
+    / equality
+
+equality -> ast::Expression
+    = l:sum __ op:equal_op __ r:expression { ast::Expression::Binary(op, Box::new(l), Box::new(r)) }
     / sum
+
+equal_op -> ast::BinaryOp
+    = "===" { ast::BinaryOp::StrictEquals }
 
 sum -> ast::Expression
     = l:product s:(__ op:sum_op __ r:product { (op, r) })* {

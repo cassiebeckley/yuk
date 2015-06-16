@@ -33,3 +33,12 @@ assert_eq(test, 2);
 
 false || (test = 15);
 assert_eq(test, 15);
+
+assert_eq(10 === 10, true);
+assert_eq(5 + 5 === 10, true);
+assert_eq(7.5 === 5 + 5 / 2, true);
+
+test = 0;
+
+assert_eq(5 && (test = 10) === 10, true);
+assert_eq(test, 10);

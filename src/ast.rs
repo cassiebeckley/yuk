@@ -37,11 +37,14 @@ pub enum UnaryOp {
 pub enum BinaryOp {
     Add,
     Subtract,
+
+    Multiply,
+    Divide,
+
     LogicalAnd,
     LogicalOr,
 
-    Multiply,
-    Divide
+    StrictEquals
 }
 
 #[derive(Debug, Clone)]
