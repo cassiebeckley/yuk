@@ -145,10 +145,10 @@ impl ActualObject {
         }
     }
 
-    pub fn from_map(map: HashMap<String, Value>) -> ActualObject {
+    pub fn from_map(map: HashMap<String, Value>, proto: Object) -> ActualObject {
         ActualObject {
             values: map,
-            prototype: Object::Null,
+            prototype: proto,
             otype: ObjectExtension::None
         }
     }
@@ -231,8 +231,12 @@ impl Object {
         Object::Object(Rc::new(RefCell::new(ActualObject::new())))
     }
 
-    pub fn from_map(obj: HashMap<String, Value>) -> Object {
-        Object::Object(Rc::new(RefCell::new(ActualObject::from_map(obj))))
+    pub fn create(proto: Object) -> Object {
+        Object::Object(Rc::new(RefCell::new(ActualObject::create(proto))))
+    }
+
+    pub fn from_map(obj: HashMap<String, Value>, proto: Object) -> Object {
+        Object::Object(Rc::new(RefCell::new(ActualObject::from_map(obj, proto))))
     }
 
     pub fn from_function(func: Function, prototype: Object) -> Object {
@@ -585,12 +589,17 @@ fn eval_expression(expression: &ast::Expression, context: Context) -> JSResult {
             }
         },
         &ast::Expression::Object(ref exprs) => {
+            let proto = match try!(try!(context.global.get("Object")).get("prototype", context.global.clone())) {
+                Value::Object(o) => o,
+                _ => try!(throw_string("Object.prototype must be an object".to_string()))
+            };
+
             let mut obj = HashMap::new();
             for &(ref key, ref expr) in exprs {
                 obj.insert(key.clone(), try!(eval_expression(expr, context.clone())));
             }
 
-            Ok(Value::Object(Object::from_map(obj)))
+            Ok(Value::Object(Object::from_map(obj, proto)))
         },
         &ast::Expression::This => Ok(context.this)
     }

@@ -6,10 +6,10 @@ use super::interpret::{JSResult, Context};
 use std::ops::Deref;
 
 macro_rules! object {
-    ( $($key:ident => $value:expr),* ) => {
+    ( $proto:expr, $($key:ident => $value:expr),* ) => {
         Object::from_map(hashmap! {
             $(stringify!($key).to_string() => $value.to_value()),*
-        })
+        }, $proto)
     }
 }
 
@@ -86,7 +86,9 @@ impl Ack {
 fn create_stdlib() -> interpret::Object {
     use interpret::*;
 
-    let function_prototype = Object::new();
+    let object_prototype = Object::new();
+
+    let function_prototype = Object::create(object_prototype.clone());
 
     function_prototype.set("toString", function!(
         toString(context; _args) {
@@ -100,8 +102,16 @@ fn create_stdlib() -> interpret::Object {
         }, function_prototype.clone()
     )).unwrap();
 
+    object_prototype.set("toString", function!(
+        toString(_context; _args) {
+            Ok(Value::String("[object Object]".to_string()))
+        }, function_prototype.clone()
+    )).unwrap();
+
     object! {
+        object_prototype.clone(),
         console => object! {
+            object_prototype.clone(),
             log => function!(
                 log(_context; arguments) {
                     for value in arguments {
@@ -113,8 +123,14 @@ fn create_stdlib() -> interpret::Object {
                 }, function_prototype.clone()
             )
         },
+        Object => object! {
+            Object::Null,
+            prototype => object_prototype.clone()
+        },
         Number => object! {
+            object_prototype.clone(),
             prototype => object! {
+                object_prototype.clone(),
                 toString => function! (
                     toString(context; _args) {
                         match context.this {
@@ -126,7 +142,9 @@ fn create_stdlib() -> interpret::Object {
             }
         },
         String => object! {
+            object_prototype.clone(),
             prototype => object! {
+                object_prototype.clone(),
                 toString => function! (
                     toString(context; _args) {
                         match context.this {
@@ -143,6 +161,7 @@ fn create_stdlib() -> interpret::Object {
             }, function_prototype.clone()
         ),
         Function => object! {
+            object_prototype.clone(),
             prototype => function_prototype
         }
     }

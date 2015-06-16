@@ -22,3 +22,5 @@ object[0] = 10;
 
 assert_eq(object[0], 10);
 assert_eq(object["0"], 10);
+
+assert_eq(object.toString(), "[object Object]");
