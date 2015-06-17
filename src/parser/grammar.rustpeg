@@ -77,7 +77,8 @@ product -> ast::Expression
     }
 
 simple_expression -> ast::Expression
-    = v:literal { ast::Expression::Literal(v) }
+    = new
+    / v:literal { ast::Expression::Literal(v) }
     / f:function_literal { ast::Expression::Function(f) }
     / o:object { ast::Expression::Object(o) }
     / lhs:access __ "=" __ rhs:expression { ast::Expression::Assignment(lhs, Box::new(rhs)) }
@@ -107,6 +108,14 @@ method_call -> ast::Expression
             func = ast::Expression::Call(Box::new(func), el)
         }
         func
+    }
+
+new -> ast::Expression
+    = "new" __ a:access __ list:( called )? {
+        ast::Expression::New(Box::new(ast::Expression::Access(a)), match list {
+            Some(l) => l,
+            None => vec![]
+        })
     }
 
 access -> ast::Access

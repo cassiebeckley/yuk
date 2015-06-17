@@ -123,6 +123,15 @@ fn create_stdlib() -> interpret::Object {
                 }, function_prototype.clone()
             )
         },
+        // TODO: replace with .__proto__
+        proto => function! (
+            proto(_context; Object obj; _args) {
+                match obj {
+                    Object::Object(o) => Ok(Value::Object(o.borrow().prototype.clone())),
+                    Object::Null => Ok(Value::Undefined),
+                }
+            }, function_prototype.clone()
+        ),
         Object => object! {
             Object::Null,
             create => function!(

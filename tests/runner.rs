@@ -43,7 +43,7 @@ fn run_tests() {
         ack.global.set("assert_eq", Value::from_function(Function::Native("assert_eq".to_string(), assert_eq), ack.global.clone())).unwrap();
 
         let result = ack.eval(&s);
-        println!("{} assertions called", match ack.global.get(COUNT) {Ok(Value::Number(n)) => n, _ => 0.0});
+        println!("{} - {} assertions called", path.to_string_lossy(), match ack.global.get(COUNT) {Ok(Value::Number(n)) => n, _ => 0.0});
 
         match result {
             Ok(_) => (),

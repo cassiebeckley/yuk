@@ -52,6 +52,7 @@ pub enum Expression {
     Assignment(Access, Box<Expression>),
     Access(Access),
     Call(Box<Expression>, ExpressionList),
+    New(Box<Expression>, ExpressionList),
     Literal(Value),
     Function(Function),
     Unary(UnaryOp, Box<Expression>),

@@ -191,7 +191,7 @@ impl ActualObject {
         val
     }
 
-    fn debug_string(&self) -> String {
+    pub fn debug_string(&self) -> String {
         match &self.otype {
             &ObjectExtension::Function(ref f) => f.debug_string(),
             &ObjectExtension::None => {
@@ -480,6 +480,20 @@ fn eval_call(function: &ast::Expression, arguments: &ast::ExpressionList, mut co
     func.apply(args, context)
 }
 
+fn eval_new(function: &ast::Expression, arguments: &ast::ExpressionList, mut context: Context) -> JSResult {
+    let func = try!(eval_expression(function, context.clone()));
+    let args = try!(eval_expression_list(arguments, context.clone()));
+
+    let proto = match func.get("prototype", context.global.clone()) {
+        Ok(Value::Object(o)) => o,
+        _ => return throw_string("prototype must be an object".to_string())
+    };
+    context.this = Value::Object(Object::create(proto));
+
+    try!(func.apply(args, context.clone()));
+    Ok(context.this)
+}
+
 fn eval_expression_list(expressions: &Vec<ast::Expression>, context: Context) -> Result<Vec<Value>, Value> {
     let mut values = vec![];
 
@@ -563,6 +577,24 @@ fn eval_binary(op: &ast::BinaryOp, left: &ast::Expression, right: &ast::Expressi
     }
 }
 
+fn new_function(f: ast::Function, context: Context) -> JSResult {
+    let fp = match try!(try!(context.global.get("Function")).get("prototype", context.global.clone())) {
+        Value::Object(o) => o,
+        _ => return throw_string("Function.prototype must be an object".to_string())
+    };
+
+    let op = match try!(try!(context.global.get("Object")).get("prototype", context.global.clone())) {
+        Value::Object(o) => o,
+        _ => return throw_string("Object.prototype must be an object".to_string())
+    };
+
+    let func = Object::from_function(Function::User(UserFunction::new(f.clone(), context.local)), fp);
+    let proto = Object::create(op);
+    try!(proto.set("constructor", Value::Object(func.clone())));
+    try!(func.set("prototype", Value::Object(proto)));
+    Ok(Value::Object(func))
+}
+
 fn eval_expression(expression: &ast::Expression, context: Context) -> JSResult {
     match expression {
         &ast::Expression::Assignment(ref lhs, ref rhs) => {
@@ -570,14 +602,11 @@ fn eval_expression(expression: &ast::Expression, context: Context) -> JSResult {
             access_set(lhs, context, rhs)
         },
         &ast::Expression::Call(ref f, ref a) => eval_call(f, a, context),
+        &ast::Expression::New(ref c, ref a) => eval_new(c, a, context),
         &ast::Expression::Access(ref a) => access_get(a, context),
         &ast::Expression::Literal(ref l) => Ok(l.clone()),
         &ast::Expression::Function(ref f) => {
-            let fp = match try!(try!(context.global.get("Function")).get("prototype", context.global)) {
-                Value::Object(o) => o,
-                _ => try!(throw_string("Function.prototype must be an object".to_string()))
-            };
-            Ok(Value::from_function(Function::User(UserFunction::new(f.clone(), context.local)), fp))
+            new_function(f.clone(), context)
         },
         &ast::Expression::Unary(ref u, ref e) => eval_unary(u, e, context),
         &ast::Expression::Binary(ref b, ref l, ref r) => eval_binary(b, l, r, context),
@@ -658,12 +687,6 @@ fn eval_statement(statement: &ast::Statement, context: Context) -> Tri {
 pub fn eval_block(program: &ast::Block, context: Context) -> Tri {
     let mut last = Value::Undefined;
 
-    let function_prototype = match context.global.get("Function").get("prototype", context.global.clone()) {
-        Ok(Value::Object(o)) => o,
-        Err(e) => return Tri::Error(e),
-        _ => return Tri::Error(Value::String("Function.prototype must be an object".to_string()))
-    };
-
     // inefficient (I think) but convenient to parse
     for statement in program {
         if let &ast::Statement::Declaration(ref decl) = statement {
@@ -673,7 +696,11 @@ pub fn eval_block(program: &ast::Block, context: Context) -> Tri {
                     Err(e) => return Tri::Error(e)
                 },
                 &ast::Declaration::Function(ref id, ref f) => {
-                    let function = Value::from_function(Function::User(UserFunction::new(f.clone(), context.local.clone())), function_prototype.clone());
+                    let function = match new_function(f.clone(), context.clone()) {
+                        Ok(f) => f,
+                        Err(e) => return Tri::Error(e)
+                    };
+
                     match context.local.set(id, function) {
                         Ok(_) => (),
                         Err(e) => return Tri::Error(e)
