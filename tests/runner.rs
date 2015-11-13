@@ -1,11 +1,11 @@
-extern crate ack;
+extern crate yuk;
 
 use std::fs;
 use std::io::Read;
 use std::path::Path;
 
-use ack::runtime::Ack;
-use ack::interpret::{Value, Function, JSResult, Context, throw_string};
+use yuk::runtime::Yuk;
+use yuk::interpret::{Value, Function, JSResult, Context, throw_string};
 
 const DIRECTORY: &'static str = "tests/js/";
 const COUNT: &'static str = "__assert_eq_call_count";
@@ -39,11 +39,11 @@ fn run_tests() {
         let mut s = String::new();
         file.read_to_string(&mut s).ok().expect(&format!("Could not read {}", path.to_string_lossy()));
 
-        let mut ack = Ack::create_stdlib();
-        ack.global.set("assert_eq", Value::from_function(Function::Native("assert_eq".to_string(), assert_eq), ack.global.clone())).unwrap();
+        let mut yuk = Yuk::create_stdlib();
+        yuk.global.set("assert_eq", Value::from_function(Function::Native("assert_eq".to_string(), assert_eq), yuk.global.clone())).unwrap();
 
-        let result = ack.eval(&s);
-        println!("{} - {} assertions called", path.to_string_lossy(), match ack.global.get(COUNT) {Ok(Value::Number(n)) => n, _ => 0.0});
+        let result = yuk.eval(&s);
+        println!("{} - {} assertions called", path.to_string_lossy(), match yuk.global.get(COUNT) {Ok(Value::Number(n)) => n, _ => 0.0});
 
         match result {
             Ok(_) => (),

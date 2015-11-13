@@ -55,12 +55,12 @@ macro_rules! function {
     };
 }
 
-pub type Ack = interpret::Context;
+pub type Yuk = interpret::Context;
 
 /// A high-level interface for the interpreter
-impl Ack {
+impl Yuk {
     /// Create a context with the JavaScript standard library
-    pub fn create_stdlib() -> Ack {
+    pub fn create_stdlib() -> Yuk {
         Context::new(create_stdlib())
     }
 

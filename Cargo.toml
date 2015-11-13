@@ -1,10 +1,10 @@
 [package]
-name = "ack"
+name = "yuk"
 version = "0.1.0"
 authors = ["David Beckley <beckl.ds@gmail.com>"]
 
 [[bin]]
-name = "ack"
+name = "yuk"
 doc = false
 test = false
 

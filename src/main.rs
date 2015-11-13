@@ -1,19 +1,19 @@
-extern crate ack;
+extern crate yuk;
 extern crate libc;
 extern crate term;
 
 use std::{io, env, fs};
 use std::io::Write;
 
-use ack::parser;
-use ack::runtime::Ack;
+use yuk::parser;
+use yuk::runtime::Yuk;
 
 fn is_interactive() -> bool {
     (unsafe { libc::isatty(libc::STDIN_FILENO as i32) }) != 0
 }
 
 fn start_repl() {
-    let mut ack = Ack::create_stdlib();
+    let mut yuk = Yuk::create_stdlib();
 
     loop {
         print!(">>> ");
@@ -34,7 +34,7 @@ fn start_repl() {
             source
         };
 
-        match ack.eval(&source) {
+        match yuk.eval(&source) {
             Ok(result) => {
                 let mut t = term::stdout().unwrap();
 
@@ -63,7 +63,7 @@ fn run_script<T: io::Read>(mut file: T) -> bool {
         s
     };
 
-    let result = Ack::create_stdlib().eval(&source);
+    let result = Yuk::create_stdlib().eval(&source);
 
     if let &Err(ref e) = &result {
         let mut t = term::stderr().unwrap();
